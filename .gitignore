@@ -1,0 +1,47 @@
+# External source checkouts
+/.deps/
+
+# Scala / sbt / IDE
+.bsp/
+.bloop/
+.metals/
+.idea/
+/.sbt-global/
+/.sbt-run/
+/.ivy2/
+target/
+/project/project/
+/project/metals.sbt
+*.class
+
+# Generated RTL and build products
+/out/
+/out-perf/
+/build/
+/obj_dir/
+/test_run_dir/
+/perf/.build/
+
+# Reproducible experiment output; keep the directory placeholder
+/perf/results/*
+!/perf/results/.gitkeep
+
+# Python tooling caches
+__pycache__/
+*.py[cod]
+/.pytest_cache/
+
+# Simulation waveforms
+*.vcd
+*.vcd.gz
+*.fst
+*.vpd
+*.fsdb
+
+# Editor and OS files
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

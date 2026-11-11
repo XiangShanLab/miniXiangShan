@@ -1,0 +1,286 @@
+diff --git a/src/main/scala/nutcore/NutCore.scala b/src/main/scala/nutcore/NutCore.scala
+index b0cf23b..8840ac9 100644
+--- a/src/main/scala/nutcore/NutCore.scala
++++ b/src/main/scala/nutcore/NutCore.scala
+@@ -67,6 +67,7 @@ abstract class NutCoreBundle extends Bundle with HasNutCoreParameter with HasNut
+ case class NutCoreConfig (
+   FPGAPlatform: Boolean = true,
+   FPGADifftest: Boolean = false,
++  EnableDifftest: Boolean = true,
+   EnableDebug: Boolean = Settings.get("EnableDebug"),
+   EnhancedLog: Boolean = true
+ )
+diff --git a/src/main/scala/nutcore/backend/fu/CSR.scala b/src/main/scala/nutcore/backend/fu/CSR.scala
+index cd90c1c..ad6dafa 100644
+--- a/src/main/scala/nutcore/backend/fu/CSR.scala
++++ b/src/main/scala/nutcore/backend/fu/CSR.scala
+@@ -563,7 +563,6 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
+   val dmemPagefaultAddr = Wire(UInt(VAddrBits.W))
+   val dmemAddrMisalignedAddr = Wire(UInt(VAddrBits.W))
+   val lsuAddr = WireInit(0.U(64.W))
+-  BoringUtils.addSink(lsuAddr, "LSUADDR")
+   if(EnableOutOfOrderExec){
+     hasInstrPageFault      := valid && io.cfIn.exceptionVec(instrPageFault)
+     hasLoadPageFault       := valid && io.cfIn.exceptionVec(loadPageFault)
+@@ -573,6 +572,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
+     dmemPagefaultAddr := src1 // LSU -> wbresult -> prf -> beUop.data.src1
+     dmemAddrMisalignedAddr := src1
+   }else{
++    BoringUtils.addSink(lsuAddr, "LSUADDR")
+     hasInstrPageFault := io.cfIn.exceptionVec(instrPageFault) && valid
+     hasLoadPageFault := io.dmemMMU.loadPF
+     hasStorePageFault := io.dmemMMU.storePF
+@@ -885,14 +885,14 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
+   }}
+ 
+   val nutcoretrap = WireInit(false.B)
+-  if (!p.FPGAPlatform || p.FPGADifftest) {
++  if (p.EnableDifftest && (!p.FPGAPlatform || p.FPGADifftest)) {
+     BoringUtils.addSink(nutcoretrap, "nutcoretrap")
+   } else {
+     nutcoretrap := 0.U
+   }
+   def readWithScala(addr: Int): UInt = mapping(addr)._1
+ 
+-  if (!p.FPGAPlatform || p.FPGADifftest) {
++  if (p.EnableDifftest && (!p.FPGAPlatform || p.FPGADifftest)) {
+     // to monitor
+     BoringUtils.addSource(readWithScala(perfCntList("Mcycle")._1), "simCycleCnt")
+     BoringUtils.addSource(readWithScala(perfCntList("Minstret")._1), "simInstrCnt")
+@@ -962,7 +962,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
+     difftestArchEvent.exceptionPC   := SignExt(io.cfIn.pc, XLEN)
+     difftestArchEvent.exceptionInst := io.cfIn.instr
+ 
+-  } else {
++  } else if (p.EnableDifftest && p.FPGAPlatform) {
+     if (!p.FPGAPlatform) {
+       BoringUtils.addSource(readWithScala(perfCntList("Mcycle")._1), "simCycleCnt")
+       BoringUtils.addSource(readWithScala(perfCntList("Minstret")._1), "simInstrCnt")
+diff --git a/src/main/scala/nutcore/backend/fu/LSU.scala b/src/main/scala/nutcore/backend/fu/LSU.scala
+index 10857fc..1d766e8 100644
+--- a/src/main/scala/nutcore/backend/fu/LSU.scala
++++ b/src/main/scala/nutcore/backend/fu/LSU.scala
+@@ -519,8 +519,8 @@ class LSU extends NutCoreModule with HasLSUConst {
+   // For debug
+   val storeTBCV = io.dmem.req.fire && io.dmem.req.bits.cmd === SimpleBusCmd.write
+   val storeTBC = WireInit(storeQueue(0.U).pc)
+-  BoringUtils.addSource(storeTBCV, "GSPCV")
+-  BoringUtils.addSource(storeTBC, "GSPC")
++  BoringUtils.addSource(WireInit(storeTBCV), "GSPCV")
++  BoringUtils.addSource(WireInit(storeTBC), "GSPC")
+ 
+   Debug(storeQueueEnqueue || storeQueueAMOEnqueue, "[ENSTQ] pc %x moqidx %x valid %x enqp %x head %x\n", moq(moqidxResp).pc, moqidxResp, moq(moqidxResp).valid, storeQueueEnqPtr, storeHeadPtr)
+ 
+@@ -890,19 +890,20 @@ class LSU extends NutCoreModule with HasLSUConst {
+ 
+   Debug(io.out.fire && io.uopOut.decode.cf.redirect.valid, "rollback at pc %x\n", moq(writebackSelect).pc)
+ 
+-  BoringUtils.addSource(io.out.fire && io.isMMIO, "perfCntCondMmmioInstr")
+-  BoringUtils.addSource(moqFull, "perfCntCondMmemqFull")
+-  BoringUtils.addSource(storeQueueFull, "perfCntCondMstqFull")
+-  BoringUtils.addSource(io.in.fire && MEMOpID.needLoad(memop), "perfCntCondMloadCnt")
+-  BoringUtils.addSource(io.in.fire && MEMOpID.needStore(memop), "perfCntCondMstoreCnt")
+-  BoringUtils.addSource(dmem.req.fire && MEMOpID.needLoad(opReq) && forwardWmask.orR, "perfCntCondMmemSBL")
+-  BoringUtils.addSource(storeQueueFull, "perfCntCondMpendingLS")
+-  BoringUtils.addSource(storeQueueFull, "perfCntCondMpendingSCmt")
+-  BoringUtils.addSource(storeQueueFull, "perfCntCondMpendingSReq")
++  BoringUtils.addSource(WireInit(io.out.fire && io.isMMIO), "perfCntCondMmmioInstr")
++  BoringUtils.addSource(WireInit(moqFull), "perfCntCondMmemqFull")
++  BoringUtils.addSource(WireInit(storeQueueFull), "perfCntCondMstqFull")
++  BoringUtils.addSource(WireInit(io.in.fire && MEMOpID.needLoad(memop)), "perfCntCondMloadCnt")
++  BoringUtils.addSource(WireInit(dmem.req.fire && MEMOpID.needLoad(opReq)), "perfCntCondMloadInstr")
++  BoringUtils.addSource(WireInit(io.in.fire && MEMOpID.needStore(memop)), "perfCntCondMstoreCnt")
++  BoringUtils.addSource(WireInit(dmem.req.fire && MEMOpID.needLoad(opReq) && forwardWmask.orR), "perfCntCondMmemSBL")
++  BoringUtils.addSource(WireInit(storeQueueFull), "perfCntCondMpendingLS")
++  BoringUtils.addSource(WireInit(storeQueueFull), "perfCntCondMpendingSCmt")
++  BoringUtils.addSource(WireInit(storeQueueFull), "perfCntCondMpendingSReq")
+   val MOQValid = VecInit((0 until moqSize).map(i => moq(i).valid))
+-  BoringUtils.addSource(PopCount(MOQValid.asUInt), "perfCntSrcMpendingLS")
+-  BoringUtils.addSource(storeCmtPtr, "perfCntSrcMpendingSCmt")
+-  BoringUtils.addSource(storeHeadPtr, "perfCntSrcMpendingSReq")
++  BoringUtils.addSource(WireInit(PopCount(MOQValid.asUInt)), "perfCntSrcMpendingLS")
++  BoringUtils.addSource(WireInit(storeCmtPtr), "perfCntSrcMpendingSCmt")
++  BoringUtils.addSource(WireInit(storeHeadPtr), "perfCntSrcMpendingSReq")
+ 
+   val reqpc = Mux(storeReadygo, storeQueue(0.U).pc, Mux(havePendingDmemReq, moq(moqDmemPtr).pc, Mux(dtlbEnable, moq(dtlbRespUser.moqidx).pc, moq(dtlbRespUser.moqidx).pc)))
+   Debug("[DMEM] req v %x r %x addr %x data %x op %b id %x  resp v %x r %x data %x op %b id %x\n",
+diff --git a/src/main/scala/nutcore/backend/ooo/Backend.scala b/src/main/scala/nutcore/backend/ooo/Backend.scala
+index ac9ef6e..77081a8 100644
+--- a/src/main/scala/nutcore/backend/ooo/Backend.scala
++++ b/src/main/scala/nutcore/backend/ooo/Backend.scala
+@@ -589,6 +589,7 @@ class Backend_ooo(implicit val p: NutCoreConfig) extends NutCoreModule with HasR
+   BoringUtils.addSource(WireInit(bru.io.out.fire), "perfCntCondMbruInstr")
+   BoringUtils.addSource(WireInit(lsu.io.out.fire), "perfCntCondMlsuInstr")
+   BoringUtils.addSource(WireInit(mdu.io.out.fire), "perfCntCondMmduInstr")
++  BoringUtils.addSource(WireInit(csr.io.out.fire), "perfCntCondMcsrInstr")
+   BoringUtils.addSource(WireInit(!rob.io.in(0).ready), "perfCntCondMrobFull")
+   BoringUtils.addSource(WireInit(!alu1rs.io.in.ready), "perfCntCondMalu1rsFull")
+   BoringUtils.addSource(WireInit(!alu2rs.io.in.ready), "perfCntCondMalu2rsFull")
+@@ -625,27 +626,27 @@ class Backend_ooo(implicit val p: NutCoreConfig) extends NutCoreModule with HasR
+     FuType.mou -> csrrs.io.in.ready
+   ))
+   val dispatchConflict = bruCnt > 1.U || lsuCnt > 1.U || mduCnt > 1.U || csrCnt > 1.U
+-  BoringUtils.addSource(io.in(0).valid && (hasBlockInst(0) && !pipeLineEmpty || blockReg), "perfCntCondMdp1StBlk")
+-  BoringUtils.addSource(io.in(0).valid && inst1RSfull, "perfCntCondMdp1StRSf")
+-  BoringUtils.addSource(io.in(0).valid && !rob.io.in(0).ready, "perfCntCondMdp1StROBf")
+-  BoringUtils.addSource(dispatchConflict, "perfCntCondMdp1StConf")
+-  BoringUtils.addSource(io.in(0).valid && !instCango(0), "perfCntCondMdp1StCnt")
+-
+-  BoringUtils.addSource(io.in(1).valid && (hasBlockInst(0) || hasBlockInst(1) || blockReg), "perfCntCondMdp2StBlk")
+-  BoringUtils.addSource(io.in(1).valid && inst2RSfull, "perfCntCondMdp2StRSf")
+-  BoringUtils.addSource(io.in(1).valid && !rob.io.in(1).ready, "perfCntCondMdp2StROBf")
+-  BoringUtils.addSource(dispatchConflict, "perfCntCondMdp2StConf")
+-  BoringUtils.addSource(io.in(1).valid && !instCango(0), "perfCntCondMdp2StSeq")
+-  BoringUtils.addSource(io.in(1).valid && !instCango(1), "perfCntCondMdp2StCnt")
+-  BoringUtils.addSource(!io.in(0).valid, "perfCntCondMdpNoInst")
+-
+-  if (!p.FPGAPlatform || p.FPGADifftest) {
++  BoringUtils.addSource(WireInit(io.in(0).valid && (hasBlockInst(0) && !pipeLineEmpty || blockReg)), "perfCntCondMdp1StBlk")
++  BoringUtils.addSource(WireInit(io.in(0).valid && inst1RSfull), "perfCntCondMdp1StRSf")
++  BoringUtils.addSource(WireInit(io.in(0).valid && !rob.io.in(0).ready), "perfCntCondMdp1StROBf")
++  BoringUtils.addSource(WireInit(dispatchConflict), "perfCntCondMdp1StConf")
++  BoringUtils.addSource(WireInit(io.in(0).valid && !instCango(0)), "perfCntCondMdp1StCnt")
++
++  BoringUtils.addSource(WireInit(io.in(1).valid && (hasBlockInst(0) || hasBlockInst(1) || blockReg)), "perfCntCondMdp2StBlk")
++  BoringUtils.addSource(WireInit(io.in(1).valid && inst2RSfull), "perfCntCondMdp2StRSf")
++  BoringUtils.addSource(WireInit(io.in(1).valid && !rob.io.in(1).ready), "perfCntCondMdp2StROBf")
++  BoringUtils.addSource(WireInit(dispatchConflict), "perfCntCondMdp2StConf")
++  BoringUtils.addSource(WireInit(io.in(1).valid && !instCango(0)), "perfCntCondMdp2StSeq")
++  BoringUtils.addSource(WireInit(io.in(1).valid && !instCango(1)), "perfCntCondMdp2StCnt")
++  BoringUtils.addSource(WireInit(!io.in(0).valid), "perfCntCondMdpNoInst")
++
++  if (p.EnableDifftest && (!p.FPGAPlatform || p.FPGADifftest)) {
+     val difftest = DifftestModule(new DiffPhyIntRegState(NRReg)) // Size = NRREG, use as ArchIntReg
+     difftest.coreid := 0.U
+     difftest.value := VecInit(rf.read_all)
+   }
+ 
+-  if (!p.FPGAPlatform || p.FPGADifftest) {
++  if (p.EnableDifftest && (!p.FPGAPlatform || p.FPGADifftest)) {
+     val cycleCnt = WireInit(0.U(XLEN.W))
+     val instrCnt = WireInit(0.U(XLEN.W))
+     val nutcoretrap = WireInit(csrrs.io.out.bits.decode.ctrl.isNutCoreTrap && csrrs.io.out.valid)
+diff --git a/src/main/scala/nutcore/backend/ooo/ROB.scala b/src/main/scala/nutcore/backend/ooo/ROB.scala
+index 4effc77..5b955fc 100644
+--- a/src/main/scala/nutcore/backend/ooo/ROB.scala
++++ b/src/main/scala/nutcore/backend/ooo/ROB.scala
+@@ -492,10 +492,10 @@ class ROB(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstrType
+   }
+ 
+   val retireMultiTerms = retireATerm && valid(ringBufferTail)(0) && valid(ringBufferTail)(1) && !instRedirect(0)
+-  BoringUtils.addSource(retireATerm, "perfCntCondMinstret")
+-  BoringUtils.addSource(retireMultiTerms, "perfCntCondMultiCommit")
++  BoringUtils.addSource(WireInit(retireATerm), "perfCntCondMinstret")
++  BoringUtils.addSource(WireInit(retireMultiTerms), "perfCntCondMultiCommit")
+ 
+-  if (!p.FPGAPlatform || p.FPGADifftest) {
++  if (p.EnableDifftest && (!p.FPGAPlatform || p.FPGADifftest)) {
+     for (i <- 0 until RetireWidth) {
+       val difftest_commit = DifftestModule(new DiffInstrCommit(robSize * robWidth), delay = 1)
+       difftest_commit.coreid   := 0.U
+@@ -511,7 +511,7 @@ class ROB(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstrType
+       difftest_commit.wdest    := io.wb(i).rfDest
+       difftest_commit.wpdest   := io.wb(i).rfDest
+     }
+-  } else {
++  } else if (p.FPGAPlatform) {
+     BoringUtils.addSource(retireATerm, "ilaWBUvalid")
+     BoringUtils.addSource(SignExt(decode(ringBufferTail)(0).cf.pc, AddrBits), "ilaWBUpc")
+     BoringUtils.addSource(io.wb(0).rfWen, "ilaWBUrfWen")
+@@ -526,7 +526,7 @@ class ROB(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstrType
+   // sim pref counter
+   val retireBruInst = (retireATerm && (decode(ringBufferTail)(0).ctrl.fuType === FuType.bru || decode(ringBufferTail)(1).ctrl.fuType === FuType.bru))
+   val retireBruInstRedirect = retireBruInst && (redirect(ringBufferTail)(0).valid || redirect(ringBufferTail)(1).valid)
+-  BoringUtils.addSource(retireBruInst, "perfCntCondMbruCmt")
+-  BoringUtils.addSource(retireBruInstRedirect, "perfCntCondMbruCmtWrong")
++  BoringUtils.addSource(WireInit(retireBruInst), "perfCntCondMbruCmt")
++  BoringUtils.addSource(WireInit(retireBruInstRedirect), "perfCntCondMbruCmtWrong")
+ 
+ }
+diff --git a/src/main/scala/nutcore/backend/ooo/RS.scala b/src/main/scala/nutcore/backend/ooo/RS.scala
+index 28e120b..f016517 100644
+--- a/src/main/scala/nutcore/backend/ooo/RS.scala
++++ b/src/main/scala/nutcore/backend/ooo/RS.scala
+@@ -329,11 +329,11 @@ class RS(size: Int = 2, pipelined: Boolean = true, fifo: Boolean = false, priori
+     when(io.out.fire){(0 until rsSize).map(i => priorityMask(i)(dequeueSelect) := false.B)}
+     when(io.flush){(0 until rsSize).map(i => priorityMask(i) := VecInit(Seq.fill(rsSize)(false.B)))}
+ 
+-    BoringUtils.addSource(PopCount(valid) === 0.U, "perfCntCondMbrInROB_0")
+-    BoringUtils.addSource(PopCount(valid) === 1.U, "perfCntCondMbrInROB_1")
+-    BoringUtils.addSource(PopCount(valid) === 2.U, "perfCntCondMbrInROB_2")
+-    BoringUtils.addSource(PopCount(valid) === 3.U, "perfCntCondMbrInROB_3")
+-    BoringUtils.addSource(PopCount(valid) >   3.U, "perfCntCondMbrInROB_4")
++    BoringUtils.addSource(WireInit(PopCount(valid) === 0.U), "perfCntCondMbrInROB_0")
++    BoringUtils.addSource(WireInit(PopCount(valid) === 1.U), "perfCntCondMbrInROB_1")
++    BoringUtils.addSource(WireInit(PopCount(valid) === 2.U), "perfCntCondMbrInROB_2")
++    BoringUtils.addSource(WireInit(PopCount(valid) === 3.U), "perfCntCondMbrInROB_3")
++    BoringUtils.addSource(WireInit(PopCount(valid) >   3.U), "perfCntCondMbrInROB_4")
+   }
+ 
+-}
+\ No newline at end of file
++}
+diff --git a/src/main/scala/nutcore/backend/seq/EXU.scala b/src/main/scala/nutcore/backend/seq/EXU.scala
+index 428ba04..79e5e28 100644
+--- a/src/main/scala/nutcore/backend/seq/EXU.scala
++++ b/src/main/scala/nutcore/backend/seq/EXU.scala
+@@ -129,7 +129,7 @@ class EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
+   BoringUtils.addSource(WireInit(mdu.io.out.fire), "perfCntCondMmduInstr")
+   BoringUtils.addSource(WireInit(csr.io.out.fire), "perfCntCondMcsrInstr")
+ 
+-  if (!p.FPGAPlatform || p.FPGADifftest) {
++  if (p.EnableDifftest && (!p.FPGAPlatform || p.FPGADifftest)) {
+     val cycleCnt = WireInit(0.U(64.W))
+     val instrCnt = WireInit(0.U(64.W))
+     val nutcoretrap = WireInit(io.in.bits.ctrl.isNutCoreTrap && io.in.valid)
+diff --git a/src/main/scala/nutcore/backend/seq/ISU.scala b/src/main/scala/nutcore/backend/seq/ISU.scala
+index e051c49..c6eaa35 100644
+--- a/src/main/scala/nutcore/backend/seq/ISU.scala
++++ b/src/main/scala/nutcore/backend/seq/ISU.scala
+@@ -98,7 +98,7 @@ class ISU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFilePa
+   BoringUtils.addSource(WireInit(io.out.valid && !io.out.fire), "perfCntCondMexuBusy")
+   BoringUtils.addSource(WireInit(io.out.fire), "perfCntCondISUIssue")
+ 
+-  if (!p.FPGAPlatform || p.FPGADifftest) {
++  if (p.EnableDifftest && (!p.FPGAPlatform || p.FPGADifftest)) {
+     val difftest = DifftestModule(new DiffPhyIntRegState(NRReg)) // Size = NRREG, use as ArchIntReg
+     difftest.coreid := 0.U
+     difftest.value := VecInit(rf.read_all)
+diff --git a/src/main/scala/nutcore/backend/seq/WBU.scala b/src/main/scala/nutcore/backend/seq/WBU.scala
+index 3cdaf8b..9077c84 100644
+--- a/src/main/scala/nutcore/backend/seq/WBU.scala
++++ b/src/main/scala/nutcore/backend/seq/WBU.scala
+@@ -44,7 +44,7 @@ class WBU(implicit val p: NutCoreConfig) extends NutCoreModule{
+   BoringUtils.addSource(io.in.valid, "perfCntCondMinstret")
+   BoringUtils.addSource(falseWire, "perfCntCondMultiCommit")
+ 
+-  if (!p.FPGAPlatform || p.FPGADifftest) {
++  if (p.EnableDifftest && (!p.FPGAPlatform || p.FPGADifftest)) {
+     val difftest_commit = DifftestModule(new DiffInstrCommit, delay = 1, dontCare = true)
+     difftest_commit.coreid := 0.U
+     difftest_commit.index  := 0.U
+@@ -57,7 +57,7 @@ class WBU(implicit val p: NutCoreConfig) extends NutCoreModule{
+     difftest_commit.fpwen  := false.B
+     difftest_commit.wdest  := io.wb.rfDest
+     difftest_commit.wpdest := io.wb.rfDest
+-  } else {
++  } else if (p.FPGAPlatform) {
+     BoringUtils.addSource(io.in.valid, "ilaWBUvalid")
+     BoringUtils.addSource(io.in.bits.decode.cf.pc, "ilaWBUpc")
+     BoringUtils.addSource(io.wb.rfWen, "ilaWBUrfWen")
+diff --git a/src/main/scala/nutcore/mem/Cache.scala b/src/main/scala/nutcore/mem/Cache.scala
+index 1929915..d547d20 100644
+--- a/src/main/scala/nutcore/mem/Cache.scala
++++ b/src/main/scala/nutcore/mem/Cache.scala
+@@ -538,9 +538,8 @@ class Cache(implicit val cacheConfig: CacheConfig) extends CacheModule with HasC
+   s2.io.metaWriteBus := s3.io.metaWriteBus
+ 
+   if (EnableOutOfOrderExec) {
+-    BoringUtils.addSource(s3.io.out.fire && s3.io.in.bits.hit, "perfCntCondM" + cacheName + "Hit")
+-    BoringUtils.addSource(s3.io.in.valid && !s3.io.in.bits.hit, "perfCntCondM" + cacheName + "Loss")
+-    BoringUtils.addSource(s1.io.in.fire, "perfCntCondM" + cacheName + "Req")
++    BoringUtils.addSource(WireInit(s3.io.in.valid && !s3.io.in.bits.hit), "perfCntCondM" + cacheName + "Loss")
++    BoringUtils.addSource(WireInit(s1.io.in.fire), "perfCntCondM" + cacheName + "Req")
+   }
+   // io.in.dump(cacheName + ".in")
+   Debug("InReq(%d, %d) InResp(%d, %d) \n", io.in.req.valid, io.in.req.ready, io.in.resp.valid, io.in.resp.ready)

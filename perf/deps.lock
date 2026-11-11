@@ -1,0 +1,10 @@
+# External source dependencies.  The fetch script clones these repositories and
+# checks out the exact revisions below; no third-party source is committed here.
+
+NUTSHELL_REPO="https://github.com/OSCPU/NutShell.git"
+NUTSHELL_REF="a854aead78cf3c5e54a76f8724fe182d4de914d3"
+
+COREMARK_REPO="https://github.com/eembc/coremark.git"
+# CoreMark v1.01 tag commit.  Do not use HEAD here: HEAD moves when upstream
+# changes and would silently replace the benchmark source.
+COREMARK_REF="cfa9ab377835911f23d9b0831c7be302ed1f58de"

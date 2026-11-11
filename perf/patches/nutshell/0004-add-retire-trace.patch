@@ -1,0 +1,24 @@
+diff --git a/src/main/scala/nutcore/backend/ooo/ROB.scala b/src/main/scala/nutcore/backend/ooo/ROB.scala
+index 8ce54b0..cf4f9c1 100644
+--- a/src/main/scala/nutcore/backend/ooo/ROB.scala
++++ b/src/main/scala/nutcore/backend/ooo/ROB.scala
+@@ -493,5 +493,19 @@ class ROB(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstrType
+ 
+   val retireMultiTerms = retireATerm && valid(ringBufferTail)(0) && valid(ringBufferTail)(1) && !instRedirect(0)
++
++  // Observation-only retirement trace for the performance harness.  The two
++  // bits use exactly the architectural commit eligibility that Difftest uses:
++  // bank 0 retires on retireATerm, bank 1 only on retireMultiTerms.  No
++  // pipeline state, cache request, or memory request depends on these values.
++  val retireTraceValid = Cat(
++    retireMultiTerms && valid(ringBufferTail)(1),
++    retireATerm && valid(ringBufferTail)(0)
++  )
++  BoringUtils.addSource(WireInit(retireTraceValid), "perfTraceValid")
++  BoringUtils.addSource(WireInit(SignExt(decode(ringBufferTail)(0).cf.pc, AddrBits)), "perfTracePc0")
++  BoringUtils.addSource(WireInit(SignExt(decode(ringBufferTail)(1).cf.pc, AddrBits)), "perfTracePc1")
++  BoringUtils.addSource(WireInit(decode(ringBufferTail)(0).cf.instr), "perfTraceInst0")
++  BoringUtils.addSource(WireInit(decode(ringBufferTail)(1).cf.instr), "perfTraceInst1")
+   BoringUtils.addSource(WireInit(retireATerm), "perfCntCondMinstret")
+   BoringUtils.addSource(WireInit(retireMultiTerms), "perfCntCondMultiCommit")
+ 

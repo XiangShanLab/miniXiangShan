@@ -1,0 +1,20 @@
+diff --git a/src/main/scala/nutcore/backend/ooo/Backend.scala b/src/main/scala/nutcore/backend/ooo/Backend.scala
+--- a/src/main/scala/nutcore/backend/ooo/Backend.scala
++++ b/src/main/scala/nutcore/backend/ooo/Backend.scala
+@@ -88,8 +88,14 @@ class Backend_ooo(implicit val p: NutCoreConfig) extends NutCoreModule with HasR
+   rob.io.cdb <> cdb
+   rob.io.mispredictRec := mispredictRec
+   rob.io.flush := flushBackend
+-  when (rob.io.wb(0).rfWen) { rf.write(rob.io.wb(0).rfDest, rob.io.wb(0).rfData) }
+-  when (rob.io.wb(1).rfWen) { rf.write(rob.io.wb(1).rfDest, rob.io.wb(1).rfData) }
++  // Both retire banks can write the architectural RF in the same cycle.  If
++  // they target the same register, only the younger instruction (bank 1) may
++  // update it; otherwise the older value can overwrite the younger one.
++  val wb0Writes = rob.io.wb(0).rfWen && rob.io.wb(0).rfDest =/= 0.U &&
++    (!rob.io.wb(1).rfWen || rob.io.wb(0).rfDest =/= rob.io.wb(1).rfDest)
++  val wb1Writes = rob.io.wb(1).rfWen && rob.io.wb(1).rfDest =/= 0.U
++  when (wb0Writes) { rf.write(rob.io.wb(0).rfDest, rob.io.wb(0).rfData) }
++  when (wb1Writes) { rf.write(rob.io.wb(1).rfDest, rob.io.wb(1).rfData) }
+   List.tabulate(DispatchWidth)(i => {
+     rob.io.in(i).valid := io.in(i).valid && instCango(i)
+     io.in(i).ready := rob.io.in(i).ready && instCango(i)
