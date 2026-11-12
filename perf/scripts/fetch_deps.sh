@@ -11,6 +11,14 @@ source "$PERF_DIR/deps.lock"
 
 export GIT_TERMINAL_PROMPT=0
 
+COREMARK_ONLY=0
+if [[ ${1:-} == --coremark-only && $# == 1 ]]; then
+  COREMARK_ONLY=1
+elif [[ $# != 0 ]]; then
+  echo "Usage: $0 [--coremark-only]" >&2
+  exit 2
+fi
+
 cache_key=$(
   cat "$PERF_DIR/deps.lock" \
       "$PERF_DIR/deps-checksums.sha256" \
@@ -44,7 +52,7 @@ write_versions() {
   cp "$DEPS_DIR/versions.txt" "$PERF_DIR/.build/dependencies.txt"
 }
 
-if cache_valid; then
+if [[ "$COREMARK_ONLY" == 0 ]] && cache_valid; then
   echo "Using cached external sources in $DEPS_DIR"
   write_versions
   exit 0
@@ -95,6 +103,25 @@ apply_patches() {
 }
 
 mkdir -p "$DEPS_DIR"
+if [[ "$COREMARK_ONLY" == 1 ]]; then
+  core_dir=${COREMARK_DIR:-"$DEPS_DIR/coremark"}
+  if [[ -e "$core_dir" ]]; then
+    [[ $(git -C "$core_dir" rev-parse HEAD) == "$COREMARK_REF" ]] &&
+      git -C "$core_dir" apply --reverse --check \
+        "$PERF_DIR/patches/coremark/0001-report-results.patch" || {
+      echo "ERROR: existing $core_dir is not the prepared CoreMark revision." >&2
+      echo "Set COREMARK_DIR to a new cache directory; existing files were preserved." >&2
+      exit 1
+    }
+    echo "Using prepared CoreMark sources in $core_dir"
+  else
+    checkout_ref "CoreMark" "$COREMARK_REPO" "$COREMARK_REF" "$core_dir"
+    (cd "$core_dir" && sha256sum --check "$PERF_DIR/deps-checksums.sha256")
+    apply_patches "$core_dir" "$PERF_DIR"/patches/coremark/*.patch
+  fi
+  exit 0
+fi
+
 checkout_ref "NutShell" "$NUTSHELL_REPO" "$NUTSHELL_REF" "$DEPS_DIR/NutShell"
 git -C "$DEPS_DIR/NutShell" submodule update --init --recursive --depth 1
 

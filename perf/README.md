@@ -1,6 +1,6 @@
 # CoreMark 性能对比
 
-本目录只做一件事：让 NutShell RV64 和 miniXiangShan RV64 在完全相同的外部
+本目录提供 CoreMark 构建和运行平台，让 NutShell RV64 和 miniXiangShan RV64 在完全相同的外部
 AXI4 DRAM、MMIO 和 console 平台上运行**同一份 RV64 CoreMark 机器码**，并
 比较被测区间内的 `mcycle`、`minstret` 和 IPC。实验契约见 `METHODOLOGY.md`。
 
@@ -9,12 +9,29 @@ mini 少用 4.43% 周期。计数条件及适用范围见 `METHODOLOGY.md`。
 
 ## 命令
 
-唯一用户命令是：
+性能对比命令是：
 
 ```bash
 cd miniXiangShan
 make perf
 ```
+
+仅运行 miniXiangShan：
+
+```bash
+make coremark
+# 等价入口：
+bash src/main/run_coremark.sh
+```
+
+单核入口只准备 CoreMark，不获取或构建 NutShell，不需要 mill。
+它复用下述 CoreMark 镜像、mini RTL 和 Verilator 构建流程，默认输出到
+`perf/results/mini/coremark-mini.log` 与 `perf/results/mini/summary.txt`，
+仅在完成签名、全部 CRC 和性能计数检查通过后生成摘要。
+支持 `ITERATIONS`、`MAX_CYCLES`、`COREMARK_DIR`、`DEPS_DIR`、
+`PERF_BUILD_DIR`、`OUT_DIR`、`SBT_BIN` 和 `FORCE_RTL_ELAB`。
+`PERF_BUILD_DIR` 覆盖镜像与仿真器的共同构建目录。
+已有 CoreMark 缓存版本或补丁不兼容时会报错并保留文件，可指定新的 `COREMARK_DIR`。
 
 `make perf` 调用 `perf/run.sh`。不需要分别执行 clone、patch、build 和 run。
 脚本可重复运行：依赖和补丁未变化时复用 `.deps/`；miniXiangShan 的 Scala

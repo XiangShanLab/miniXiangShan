@@ -17,6 +17,7 @@ miniXiangShan 本体在 `src/`，性能实验在 `perf/`；两者共用仓库根
 | 路径 | 作用 |
 | --- | --- |
 | `src/main/scala/` | miniXiangShan 核的实现 |
+| `src/main/run_coremark.sh` | 单独构建、运行并校验 miniXiangShan CoreMark |
 | `perf/run.sh` | 性能对比的唯一总入口 |
 | `perf/platform/` | 共享 AXI4 平台、Verilator testbench、CoreMark/NutShell 适配层 |
 | `perf/patches/` | 对外部源码仓库应用的最小补丁及原因说明 |
@@ -36,7 +37,23 @@ miniXiangShan 本体在 `src/`，性能实验在 `perf/`；两者共用仓库根
 - C 编译器 `cc`：CoreMark host 参考程序。
 - Git 和网络：首次获取外部源码；之后使用 `.deps/` 缓存。
 
-## 唯一性能命令
+## CoreMark 命令
+
+只运行 miniXiangShan，不获取或构建 NutShell：
+
+```bash
+make coremark
+# 也可以从任意目录调用：
+bash /path/to/miniXiangShan/src/main/run_coremark.sh
+```
+
+该入口复用 RV64 性能仿真平台，自动准备 CoreMark、构建镜像和仿真器，
+校验 host/RTL 的 CRC 与完成签名，并输出 cycles、instret、IPC。
+默认日志和摘要位于 `perf/results/mini/`，不需要 mill。
+例如 `ITERATIONS=20 make coremark` 可修改迭代数；
+`MAX_CYCLES` 控制超时，`OUT_DIR` 可覆盖输出目录。
+
+与 NutShell 做性能对比：
 
 ```bash
 cd /path/to/miniXiangShan
