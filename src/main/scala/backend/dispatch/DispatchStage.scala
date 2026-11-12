@@ -188,23 +188,16 @@ class DispatchStage(implicit p: Parameters) extends NSModule {
   val p2_avail = (p2_OH & availMask).orR
  
   // 4. 依次提取第1可用、第2可用、第3可用的队列 (仅使用与或逻辑)
-  val rank0OH_uint = Mux(p0_avail, p0_OH, Mux(p1_avail, p1_OH, Mux(p2_avail, p2_OH, 0.U)))
-  val rank1OH_uint = Mux(p0_avail && p1_avail, p1_OH, Mux((p0_avail || p1_avail) && p2_avail, p2_OH, 0.U))
-  val rank2OH_uint = Mux(p0_avail && p1_avail && p2_avail, p2_OH, 0.U)
- 
-  val rank0OH = Wire(Vec(CtrlBlockWidth, Bool()))
-  val rank1OH = Wire(Vec(CtrlBlockWidth, Bool()))
-  val rank2OH = Wire(Vec(CtrlBlockWidth, Bool()))
-  for (i <- 0 until CtrlBlockWidth) {
-    rank0OH(i) := rank0OH_uint(i)
-    rank1OH(i) := rank1OH_uint(i)
-    rank2OH(i) := rank2OH_uint(i)
-  }
+  
+  val rank0OH =   Mux(p0_avail, p0_OH, Mux(p1_avail, p1_OH, Mux(p2_avail, p2_OH, 0.U)))
+  val rank1OH =   Mux(p0_avail && p1_avail, p1_OH, Mux((p0_avail || p1_avail) && p2_avail, p2_OH, 0.U))
+  val rank2OH =   Mux(p0_avail && p1_avail && p2_avail, p2_OH, 0.U)
+
  
   // 5. 容量判断极大简化：因为 rankXOH 已经使用 availMask 过滤，只要非零即代表有容量
-  val rank0HasCap = rank0OH_uint.orR
-  val rank1HasCap = rank1OH_uint.orR
-  val rank2HasCap = rank2OH_uint.orR
+  val rank0HasCap = rank0OH /* _uint */ .orR
+  val rank1HasCap = rank1OH /* _uint */ .orR
+  val rank2HasCap = rank2OH /* _uint */ .orR
 
   val aluCandR1 = VecInit((0 until CtrlBlockWidth).map(i => isAluLane(i) && !consumedMask(i)))
   val aluRound1 = truncateMask(aluCandR1, 1)

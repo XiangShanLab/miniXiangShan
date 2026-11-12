@@ -8,7 +8,9 @@ ROOT=$(cd -- "$PERF_DIR/.." && pwd)
 BUILD_DIR=${PERF_BUILD_DIR:-"$PERF_DIR/.build"}
 OBJ_DIR="$BUILD_DIR/obj-mini"
 HEX="$BUILD_DIR/coremark/coremark-rv64.hex"
-RTL_DIR="$ROOT/out-perf"
+export RTL_DIR=${RTL_DIR:-"$ROOT/build/rtl"}
+RTL_DIR=$(realpath -m -- "$RTL_DIR")
+MINI_RTL_DIR="$RTL_DIR/perf/mini"
 SBT_RUNTIME_DIR=${SBT_RUNTIME_DIR:-"${TMPDIR:-/tmp}/miniXiangShan-perf-sbt-${UID:-0}"}
 SBT_BIN=${SBT_BIN:-}
 
@@ -31,13 +33,13 @@ mkdir -p "$BUILD_DIR" "$OBJ_DIR" "$SBT_RUNTIME_DIR"
 chmod 700 "$SBT_RUNTIME_DIR"
 
 rtl_is_current() {
-  [[ ${FORCE_RTL_ELAB:-0} != 1 ]] && [[ -f "$RTL_DIR/MiniPerfTop.v" ]] || return 1
+  [[ ${FORCE_RTL_ELAB:-0} != 1 ]] && [[ -f "$MINI_RTL_DIR/MiniPerfTop.v" ]] || return 1
   ! find "$ROOT/src/main/scala" "$ROOT/build.sbt" "$ROOT/project/build.properties" \
-    -type f -newer "$RTL_DIR/MiniPerfTop.v" -print -quit | grep -q .
+    -type f -newer "$MINI_RTL_DIR/MiniPerfTop.v" -print -quit | grep -q .
 }
 
 if rtl_is_current; then
-  echo "Reusing generated miniXiangShan RTL in $RTL_DIR"
+  echo "Reusing generated miniXiangShan RTL in $MINI_RTL_DIR"
 else
   echo "Elaborating miniXiangShan performance RTL"
   (cd "$ROOT" && XDG_RUNTIME_DIR="$SBT_RUNTIME_DIR" \
@@ -52,7 +54,7 @@ OBJCACHE= verilator --cc --exe --build -j 8 \
   -O2 --x-assign fast --x-initial fast \
   --Mdir "$OBJ_DIR" \
   -DDRAM_INIT="\"$HEX\"" \
-  "$RTL_DIR"/*.v \
+  "$MINI_RTL_DIR"/*.v \
   "$PERF_DIR/platform/rtl/Axi4PerfPlatform.v" \
   "$PERF_DIR/platform/tb/mini_main.cpp" \
   -o miniperf-rv64

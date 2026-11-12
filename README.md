@@ -18,6 +18,7 @@ miniXiangShan 本体在 `src/`，性能实验在 `perf/`；两者共用仓库根
 | --- | --- |
 | `src/main/scala/` | miniXiangShan 核的实现 |
 | `src/main/run_coremark.sh` | 单独构建、运行并校验 miniXiangShan CoreMark |
+| `build/rtl/` | 生成的 RTL：`simu/`、`fpga/`、`perf/mini/`、`perf/nutshell/` |
 | `perf/run.sh` | 性能对比的唯一总入口 |
 | `perf/platform/` | 共享 AXI4 平台、Verilator testbench、CoreMark/NutShell 适配层 |
 | `perf/patches/` | 对外部源码仓库应用的最小补丁及原因说明 |
@@ -27,6 +28,10 @@ miniXiangShan 本体在 `src/`，性能实验在 `perf/`；两者共用仓库根
 | `perf/README.md` | 命令的输入、输出和执行过程 |
 | `perf/METHODOLOGY.md` | 计数口径、正确性门禁和公平性边界 |
 | `INTEGRATION.md` | 在 XiangShanLab 中作为 submodule 接入的方法 |
+
+所有入口共用 `RTL_DIR`，默认是仓库下的 `build/rtl/`。例如
+`make sim RTL_DIR=/tmp/mini-rtl` 可覆盖 RTL 根目录；直接执行 sbt 或脚本时
+使用环境变量 `RTL_DIR`。各配置分别生成到自己的子目录，互不覆盖。
 
 ## 环境要求
 

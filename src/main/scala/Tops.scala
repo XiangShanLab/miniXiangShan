@@ -140,11 +140,8 @@ object CoreGen extends App {
     case _      => "simu"
   }
 
-  val targetDirPath = mode match {
-    case "simu" => "./out"
-    case "fpga" => "./out"
-    case "perf" => "./out-perf"
-  }
+  val rtlRoot = sys.env.getOrElse("RTL_DIR", "build/rtl")
+  val targetDirPath = new File(rtlRoot, if (mode == "perf") "perf/mini" else mode).getPath
 
   val enableDifftest = mode == "simu"  // simu 开启 difftest，fpga 关闭
   val useBehavioralMemories = mode != "fpga"

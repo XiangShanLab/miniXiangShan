@@ -12,8 +12,8 @@
 SHELL := /bin/bash
 SBT ?= $(shell command -v sbt 2>/dev/null || echo $(HOME)/sbt/bin/sbt)
 
-RTL_DIR := ./out
-TOP_V := $(RTL_DIR)/core_top.v
+export RTL_DIR ?= $(CURDIR)/build/rtl
+TOP_V := $(RTL_DIR)/fpga/core_top.v
 SCALA_FILES := $(shell find ./src/main/scala -name "*.scala")
 CLEAN_PATHS := .deps .bloop .bsp .idea .sbt-global .sbt-run .ivy2 \
   target project/target project/project project/.bloop project/metals.sbt \
@@ -54,8 +54,8 @@ clean:
 	find . -type f \( -name '*.vcd' -o -name '*.class' \) -delete
 
 help:
-	@echo "make / make sim : 生成仿真版 RTL -> $(RTL_DIR)"
-	@echo "make fpga       : 生成上板版 RTL -> $(RTL_DIR)"
+	@echo "make / make sim : 生成仿真版 RTL -> $(RTL_DIR)/simu"
+	@echo "make fpga       : 生成上板版 RTL -> $(RTL_DIR)/fpga"
 	@echo "make perf       : 构建并运行 NutShell vs miniXiangShan CoreMark 对比"
 	@echo "make coremark   : 单独构建并运行 miniXiangShan RV64 CoreMark"
 	@echo "make test      : 运行全部 RV64 模块回归"

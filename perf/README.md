@@ -30,12 +30,13 @@ bash src/main/run_coremark.sh
 仅在完成签名、全部 CRC 和性能计数检查通过后生成摘要。
 支持 `ITERATIONS`、`MAX_CYCLES`、`COREMARK_DIR`、`DEPS_DIR`、
 `PERF_BUILD_DIR`、`OUT_DIR`、`SBT_BIN` 和 `FORCE_RTL_ELAB`。
-`PERF_BUILD_DIR` 覆盖镜像与仿真器的共同构建目录。
+`PERF_BUILD_DIR` 覆盖镜像与仿真器的共同构建目录；
+`RTL_DIR` 单独指定所有生成 RTL 的根目录。
 已有 CoreMark 缓存版本或补丁不兼容时会报错并保留文件，可指定新的 `COREMARK_DIR`。
 
 `make perf` 调用 `perf/run.sh`。不需要分别执行 clone、patch、build 和 run。
 脚本可重复运行：依赖和补丁未变化时复用 `.deps/`；miniXiangShan 的 Scala
-源码未变化时复用已生成的 `out-perf/` RTL，但 Verilator 模型和 CoreMark 镜像
+源码未变化时复用已生成的 `build/rtl/perf/mini/` RTL，但 Verilator 模型和 CoreMark 镜像
 仍会重新构建。
 
 ## 输入
@@ -53,6 +54,7 @@ bash src/main/run_coremark.sh
 | `SBT_BIN` | `PATH` 或 `$HOME/sbt/bin/sbt` | sbt 可执行文件 |
 | `MILL_BIN` | `mill` | mill 可执行文件 |
 | `OUT_DIR` | `perf/results` | 日志与比较结果目录 |
+| `RTL_DIR` | `miniXiangShan/build/rtl` | RTL 根目录，两个性能顶层分别位于 `perf/mini/` 和 `perf/nutshell/` |
 | `FORCE_DEPS=1` | 未设置 | 强制重新检出并应用外部补丁 |
 | `FORCE_RTL_ELAB=1` | 未设置 | 强制重新运行 sbt 生成 miniXiangShan RTL |
 
@@ -84,6 +86,7 @@ bash src/main/run_coremark.sh
 | `.build/coremark/coremark-host.txt` | host CoreMark 参考输出 |
 | `.build/coremark/coremark-rv64.{elf,bin,hex}` | RV64 裸机镜像 |
 | `.build/obj-{mini,nutshell}/` | 两个 Verilator 模型及可执行文件 |
+| `../build/rtl/perf/{mini,nutshell}/` | 两个性能顶层的 RTL |
 | `.build/traces/coremark-{nutshell,mini}.tsv` | 两侧原始 ROB 退休窗口轨迹 |
 | `.deps/versions.txt` | 实际检出的仓库提交与 difftest 提交 |
 
@@ -135,13 +138,13 @@ host 只要缺少 `seedcrc=0xe9f5`、任一 sub-CRC 或 `errors=0` 就立即失�
 ### 3. 构建 miniXiangShan
 
 `scripts/build_mini.sh` 执行 `minixiangshan.CoreGen perf` 生成
-`out-perf/*.v`，再用 Verilator 编译 `MiniPerfTop`、共享平台和 testbench。
+`build/rtl/perf/mini/*.v`，再用 Verilator 编译 `MiniPerfTop`、共享平台和 testbench。
 `simu`、`fpga` 和 `perf` 均使用 RV64；性能平台使用 Bare 地址模式。
 
 ### 4. 构建 NutShell
 
 `scripts/build_nutshell.sh` 在 `.deps/NutShell` 中执行 mill
-`BOARD=perf CORE=ooo`，输出平铺的 `NutShellPerfTop` RTL，再用 Verilator
+`BOARD=perf CORE=ooo`，输出到 `build/rtl/perf/nutshell/`，再用 Verilator
 编译另一个模型。`CORE=ooo` 会选择 NutShell 的双发射乱序后端，与
 miniXiangShan 的乱序核处于同一实验类别。补丁只修复该配置在当前上游版本中
 无法 elaboration、以及双退休写同一寄存器时的正确性问题，不改变 cache 容量、

@@ -7,7 +7,8 @@ ROOT=$(cd -- "$PERF_DIR/.." && pwd)
 
 NUTSHELL_DIR=${NUTSHELL_DIR:-"$ROOT/.deps/NutShell"}
 BUILD_DIR=${PERF_BUILD_DIR:-"$PERF_DIR/.build"}
-RTL_DIR="$BUILD_DIR/nutshell-rtl"
+RTL_DIR=${RTL_DIR:-"$ROOT/build/rtl"}
+NUTSHELL_RTL_DIR="$(realpath -m -- "$RTL_DIR")/perf/nutshell"
 OBJ_DIR="$BUILD_DIR/obj-nutshell"
 HEX="$BUILD_DIR/coremark/coremark-rv64.hex"
 MILL_BIN=${MILL_BIN:-mill}
@@ -25,11 +26,11 @@ MILL_BIN=${MILL_BIN:-mill}
   exit 1
 }
 
-mkdir -p "$BUILD_DIR" "$RTL_DIR" "$OBJ_DIR"
+mkdir -p "$BUILD_DIR" "$NUTSHELL_RTL_DIR" "$OBJ_DIR"
 
 echo "Elaborating NutShell performance RTL"
 (cd "$NUTSHELL_DIR" && "$MILL_BIN" -i generator.test.runMain top.TopMain \
-  --target-dir "$RTL_DIR" BOARD=perf CORE=ooo --split-verilog)
+  --target-dir "$NUTSHELL_RTL_DIR" BOARD=perf CORE=ooo --split-verilog)
 
 echo "Building NutShell Verilator model"
 OBJCACHE= verilator --cc --exe --build -j 8 \
@@ -38,7 +39,7 @@ OBJCACHE= verilator --cc --exe --build -j 8 \
   -O2 --x-assign fast --x-initial fast \
   --Mdir "$OBJ_DIR" \
   -DDRAM_INIT="\"$HEX\"" \
-  "$RTL_DIR"/*.sv \
+  "$NUTSHELL_RTL_DIR"/*.sv \
   "$PERF_DIR/platform/rtl/Axi4PerfPlatform.v" \
   "$PERF_DIR/platform/tb/nutshell_main.cpp" \
   -o nutshell-perf
