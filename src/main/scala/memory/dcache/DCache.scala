@@ -58,7 +58,7 @@ class DCache(implicit p: Parameters) extends NSModule {
      robIdx.isAfter(io.redirectInfo.bits.robIdx) && io.redirectInfo.valid && io.redirectInfo.bits.doRedirect
 
   def doTagCompare(data: DCacheArrayReadData, paddr: UInt, cacheable: Bool) = {
-    val ptag = paddr(31, blockOffBits + idxBitsD)
+    val ptag = paddr(XLEN - 1, blockOffBits + idxBitsD)
     val hits = Wire(Vec(nWaysD, Bool()))
     for (i <- 0 until nWaysD) hits(i) := data.ways(i).valid && data.ways(i).tag === ptag
     val hit    = hits.asUInt.orR && cacheable
@@ -283,7 +283,7 @@ class DCache(implicit p: Parameters) extends NSModule {
   mshr.io.missReq.bits.victimData  := Mux(s2_cacheable, array.io.read.resp.ways(s2_victimWay).data, 0.U)
 
   mshr.io.redirectInfo := io.redirectInfo
-  mshr.io.probeBlockAddr := s2_paddr(31, blockOffBits)
+  mshr.io.probeBlockAddr := s2_paddr(XLEN - 1, blockOffBits)
   mshr.io.refillWriteAck.valid := do_refill
   mshr.io.refillWriteAck.bits  := mshr.io.refillWritePrimId
   mshr.io.lsAck.valid := s2_valid && s2_isReplay && ((s2_fire_load && io.loadResp.ready) || (s2_fire_store && io.storeAck.ready))
@@ -298,7 +298,7 @@ class DCache(implicit p: Parameters) extends NSModule {
   array.io.write.valid := storeWriteActive || refillWriteActive
   array.io.write.idx   := Mux(refillWriteActive, mshr.io.refillWriteReq.bits.idx, s2_paddr(blockOffBits + idxBitsD - 1, blockOffBits))
   array.io.write.way   := Mux(refillWriteActive, mshr.io.refillWriteReq.bits.way, s2_hitWay)
-  array.io.write.tag   := Mux(refillWriteActive, mshr.io.refillWriteReq.bits.tag, s2_paddr(31, blockOffBits + idxBitsD))
+  array.io.write.tag   := Mux(refillWriteActive, mshr.io.refillWriteReq.bits.tag, s2_paddr(XLEN - 1, blockOffBits + idxBitsD))
   array.io.write.dirty := Mux(refillWriteActive, false.B, true.B)
   array.io.write.data  := Mux(refillWriteActive, mshr.io.refillWriteReq.bits.data, mergeStoreLine(array.io.read.resp, s2_hitWay, s2_paddr, s2_storeData, s2_lsuOp))
   array.io.write.wen   := true.B

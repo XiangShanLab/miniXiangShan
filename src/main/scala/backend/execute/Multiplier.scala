@@ -12,10 +12,10 @@ import minixiangshan.util.BitExt
 // ═══════════════════════════════════════════════════════════════
 //  流水线乘法器
 //
-//  支持操作：MUL    (低 32 位)
-//            MULH   (有符号 × 有符号，高 32 位)
-//            MULHSU (有符号 × 无符号，高 32 位)
-//            MULHU  (无符号 × 无符号，高 32 位)
+//  支持操作：MUL    (低 XLEN 位)
+//            MULH   (有符号 × 有符号，高 XLEN 位)
+//            MULHSU (有符号 × 无符号，高 XLEN 位)
+//            MULHU  (无符号 × 无符号，高 XLEN 位)
 //
 //  2级流水线：
 //    S1: 锁存原始输入（切断旁路网络与乘法器的组合耦合）
@@ -104,7 +104,7 @@ class Multiplier(implicit p: Parameters) extends NSModule {
   //  2. 有符号乘积通过符号修正推导：
   //     signed = unsigned - a[31]*b*2^32 - b[31]*a*2^32
   //     MULHSU 只对 a 做修正
-  //  3. MUL 低 32 位在有无符号下结果一致，无需区分
+  //  3. MUL 低 XLEN 位在有无符号下结果一致，无需区分
   // ================================================================
   val prodUnsigned = s1_a * s1_b
  
@@ -118,7 +118,7 @@ class Multiplier(implicit p: Parameters) extends NSModule {
     (s1_mulOp === MulOp.mulhsu) -> prodSignedUn
   ))
  
-  // 结果选择：MUL→低32位，MULH/MULHU→高32位
+  // 结果选择：MUL→低 XLEN 位，MULH/MULHU→高 XLEN 位
   val s1_result = MuxCase(prod(2 * XLEN - 1, XLEN), Seq(
     (s1_mulOp === MulOp.mul)  -> prod(XLEN - 1, 0),
     (s1_mulOp === MulOp.mulw) -> BitExt.sign(prod(31, 0), XLEN)

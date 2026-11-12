@@ -9,16 +9,16 @@ import minixiangshan.config.NSModule
 import minixiangshan.config.NSBundle
 
 class RedirectIO(implicit p: Parameters) extends NSBundle {
-  val target = Output(UInt(32.W))
+  val target = Output(UInt(XLEN.W))
   val rtype = Output(UInt(1.W)) // 1: branch mispredict: only need to flush frontend  0: others: flush the whole pipeline
   val valid = Output(Bool())
 }
 
 class FtqEntry(implicit p: Parameters) extends NSBundle {
-  val startPc   = UInt(32.W)   // 这个取指块的起始 PC
-  val nextPc    = UInt(32.W)   // 预测的下一个 PC（顺序 = fallThru，跳转 = 分支目标）
+  val startPc   = UInt(XLEN.W)   // 这个取指块的起始 PC
+  val nextPc    = UInt(XLEN.W)   // 预测的下一个 PC（顺序 = fallThru，跳转 = 分支目标）
   val taken     = Bool()       // 是否预测跳转
-  val fallThru  = UInt(32.W)   // 顺序下落 PC = startPc + fetchWidth * 4
+  val fallThru  = UInt(XLEN.W)   // 顺序下落 PC = startPc + fetchWidth * 4
 }
 
  
@@ -35,7 +35,7 @@ object RiscVOpcodes {
 class BTBEntry(implicit p: Parameters) extends NSBundle {
   val valid  = Bool()
   val tag    = UInt(btbTagBits.W)
-  val target = UInt(32.W)
+  val target = UInt(XLEN.W)
   val isJalr = Bool()   // 间接跳转 (jalr)
   val isJal  = Bool()   // 无条件直接跳转 (jal)
   val isCall = Bool()   // 函数调用
@@ -46,7 +46,7 @@ class BTBEntry(implicit p: Parameters) extends NSBundle {
 // 在 BTBEntry 定义旁边添加
 class BTBEntryNoValid(implicit p: Parameters) extends NSBundle {
   val tag    = UInt(btbTagBits.W)
-  val target = UInt(32.W)
+  val target = UInt(XLEN.W)
   val isJalr = Bool()
   val isJal  = Bool()
   val isCall = Bool()
@@ -67,24 +67,24 @@ class BpuMeta(implicit p: Parameters) extends NSBundle {
   val phtCounter  = UInt(2.W)
   val rasTop      = UInt(log2Ceil(rasSize).W)
   val predTaken   = Bool()
-  val predTarget  = UInt(32.W)
+  val predTarget  = UInt(XLEN.W)
 }
  
 // ==================== BPU 预测请求/响应 ====================
 class BpuPredictReq(implicit p: Parameters) extends NSBundle {
   //读的
-  val nextPC = UInt(32.W)
+  val nextPC = UInt(XLEN.W)
   val rdBpu = Bool()
 
   //对比的
-  val pc = UInt(32.W)
+  val pc = UInt(XLEN.W)
   val crossLine = Bool()
   
 }
  
 class BpuPredictResp(implicit p: Parameters) extends NSBundle {
   val taken       = Bool()
-  val target      = UInt(32.W)
+  val target      = UInt(XLEN.W)
   val takenOffset = UInt(log2Ceil(fetchWidth).W)
   val meta        = new BpuMeta
 }
@@ -93,9 +93,9 @@ class BpuPredictResp(implicit p: Parameters) extends NSBundle {
 class BpuUpdateReq(implicit p: Parameters) extends NSBundle {
   val valid    = Bool()
   val validEntry    = Bool()
-  val pc       = UInt(32.W)
+  val pc       = UInt(XLEN.W)
   val taken    = Bool()       // 实际是否跳转
-  val target   = UInt(32.W)   // 实际跳转目标
+  val target   = UInt(XLEN.W)   // 实际跳转目标
   val oldPhtCounter   = UInt(2.W)   // 实际跳转目标
   val isJalr   = Bool()
   val isJal    = Bool()
@@ -107,10 +107,10 @@ class BpuUpdateReq(implicit p: Parameters) extends NSBundle {
  
 // ==================== 预测信息流水线 Bundle ====================
 class bpuInfoBundle(implicit p: Parameters) extends NSBundle {
-  val pc          = UInt(32.W)
-  val fallThrough = UInt(32.W)
+  val pc          = UInt(XLEN.W)
+  val fallThrough = UInt(XLEN.W)
   val taken       = Bool()
-  val target      = UInt(32.W)
+  val target      = UInt(XLEN.W)
   val takenOffset = UInt(log2Ceil(fetchWidth).W)
   val meta        = new BpuMeta
 }
@@ -118,7 +118,7 @@ class bpuInfoBundle(implicit p: Parameters) extends NSBundle {
 // ==================== 前端重定向 ====================
 class FrontendRedirect(implicit p: Parameters) extends NSBundle {
   val valid  = Bool()
-  val target = UInt(32.W)
+  val target = UInt(XLEN.W)
 }
  
 // ==================== 预译码信息 ====================
@@ -129,13 +129,13 @@ class PredecodeInfo(implicit p: Parameters) extends NSBundle {
   val isJalr     = Bool()     // 间接跳转 (jalr)
   val isCall     = Bool()     // 函数调用
   val isRet      = Bool()     // 函数返回
-  val jumpTarget = UInt(32.W) // 跳转目标(直接跳转可计算, jirl为0)
+  val jumpTarget = UInt(XLEN.W) // 跳转目标(直接跳转可计算, jirl为0)
 }
  
 // ==================== 预译码输出 ====================
 class PredecodeResp(implicit p: Parameters) extends NSBundle {
   val instrs           = Vec(fetchWidth, UInt(32.W))
-  val pcs              = Vec(fetchWidth, UInt(32.W))
+  val pcs              = Vec(fetchWidth, UInt(XLEN.W))
   val instvalids           = Vec(fetchWidth, Bool())
   val pdInfo           = Vec(fetchWidth, new PredecodeInfo)
   val bpuInfo          = Vec(fetchWidth, new bpuInfoBundle)
@@ -145,13 +145,13 @@ class PredecodeResp(implicit p: Parameters) extends NSBundle {
   //val miss             = Bool()
   val uncached         = Bool()
   val mmu_error        = new FetchMmuError
-  val addr             = UInt(32.W)
+  val addr             = UInt(XLEN.W)
 }
 
 class CtrlFlowIO(implicit p: Parameters) extends NSBundle {
   // === 核心取指信息 ===
   val instr      = Output(UInt(32.W))
-  val pc         = Output(UInt(32.W))
+  val pc         = Output(UInt(XLEN.W))
   // === 预译码结果 ===
   val pdInfo     = new PredecodeInfo
   val bpuInfo    = new bpuInfoBundle
@@ -163,20 +163,20 @@ class CtrlFlowIO(implicit p: Parameters) extends NSBundle {
 // 同 CtrlFlowIO
 //class IBufEntry(implicit p: Parameters) extends NSBundle {
 //  val instr      = UInt(32.W)
-//  val pc         = UInt(32.W)
+//  val pc         = UInt(XLEN.W)
 //  val isBr       = Bool()
 //  val isJal      = Bool()
 //  val isJalr     = Bool()
 //  val isCall     = Bool()
 //  val isRet      = Bool()
 //  val exception  = Bool()
-//  val jumpTarget = UInt(32.W)
+//  val jumpTarget = UInt(XLEN.W)
 //}
 
 class bpuInfoQueueEnq(implicit p: Parameters) extends NSBundle {
   // === 核心取指信息 ===
   val instr      = Output(UInt(32.W))
-  val pc         = Output(UInt(32.W))
+  val pc         = Output(UInt(XLEN.W))
 
 }
 

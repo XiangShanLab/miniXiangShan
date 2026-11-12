@@ -98,7 +98,7 @@ class DCacheMSHRFile(implicit p: Parameters) extends NSModule {
   io.idle := !VecInit(primaries.map(_.io.busy)).asUInt.orR && !lsValid.asUInt.orR
  
   // ===== 请求分配逻辑 =====
-  val reqBlockAddr  = io.missReq.bits.paddr(31, blockOffBits)
+  val reqBlockAddr  = io.missReq.bits.paddr(XLEN - 1, blockOffBits)
   val reqSetIdx     = io.missReq.bits.paddr(blockOffBits + idxBitsD - 1, blockOffBits)
  
   val isFirstMissReq = !VecInit(blockMatchVec).asUInt.orR

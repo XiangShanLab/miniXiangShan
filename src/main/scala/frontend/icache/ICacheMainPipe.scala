@@ -14,7 +14,7 @@ class ICacheMainPipe(implicit p: Parameters) extends NSModule {
     val redirect = Input(Bool())
     // CPU接口
     val cpu_req = Flipped(Decoupled(new Bundle {
-      val addr  = UInt(32.W)   // 虚拟地址
+      val addr  = UInt(XLEN.W)   // 虚拟地址
     }))
     val icache_resp = Decoupled(new IcacheResp)
     
@@ -37,7 +37,7 @@ class ICacheMainPipe(implicit p: Parameters) extends NSModule {
   if (usePIPT == 1) { 
     // --- S0 阶段：向 MMU 发起地址翻译 ---
     val s1_valid = RegInit(false.B)
-    val s1_vaddr = RegInit(0.U(32.W))
+    val s1_vaddr = RegInit(0.U(XLEN.W))
     val s1_fire  = Wire(Bool())
 
     val s1_accepts = !s1_valid || s1_fire || io.redirect
@@ -79,7 +79,7 @@ class ICacheMainPipe(implicit p: Parameters) extends NSModule {
 
     s1_fire := s1_valid && mmu_ready && s2_accepts && !io.redirect
 
-    val s2_vaddr       = RegInit(0.U(32.W))
+    val s2_vaddr       = RegInit(0.U(XLEN.W))
     val s2_mmu_data_reg = RegInit(0.U.asTypeOf(new MmuToIcache))
 
     // S1 发起 Array Read (使用物理索引 pidx)
@@ -113,7 +113,7 @@ class ICacheMainPipe(implicit p: Parameters) extends NSModule {
     val array_ready    = expect_array_resp || s2_array_latched
 
     // 命中判定计算 (PIPT: 使用 MMU 中保留的物理地址进行判断)
-    val ptag = s2_mmu_data_reg.paddr(31, blockOffBits + idxBitsI)
+    val ptag = s2_mmu_data_reg.paddr(XLEN - 1, blockOffBits + idxBitsI)
     val pidx = s2_mmu_data_reg.paddr(blockOffBits + idxBitsI - 1, blockOffBits)
 
     val hits = Wire(Vec(nWaysI, Bool()))
@@ -135,7 +135,7 @@ class ICacheMainPipe(implicit p: Parameters) extends NSModule {
     
     val state = RegInit(s_idle)
     
-    val fsm_paddr      = RegInit(0.U(32.W))
+    val fsm_paddr      = RegInit(0.U(XLEN.W))
     val fsm_ptag       = RegInit(0.U(tagBitsI.W))
     val fsm_idx        = RegInit(0.U(idxBitsI.W)) // PIPT 使用统一的 physical index
     val fsm_is_uncache = RegInit(false.B)
@@ -308,7 +308,7 @@ class ICacheMainPipe(implicit p: Parameters) extends NSModule {
     // ══════════════════════════════════════════════════════════════
 
     val s1_valid = RegInit(false.B)
-    val s1_vaddr = RegInit(0.U(32.W))
+    val s1_vaddr = RegInit(0.U(XLEN.W))
     val s1_fire  = Wire(Bool())
 
     val s1_accepts = !s1_valid || s1_fire || io.redirect
@@ -361,7 +361,7 @@ class ICacheMainPipe(implicit p: Parameters) extends NSModule {
     val mmu_ready    = (s1_valid && io.mmu.fromMmu.valid) || s1_mmu_latched
 
     // VIPT 命中判定
-    val ptag = cur_mmu_data.paddr(31, blockOffBits + idxBitsI)
+    val ptag = cur_mmu_data.paddr(XLEN - 1, blockOffBits + idxBitsI)
     val vidx = s1_vaddr(blockOffBits + idxBitsI - 1, blockOffBits)
 
     val hits = Wire(Vec(nWaysI, Bool()))
@@ -383,7 +383,7 @@ class ICacheMainPipe(implicit p: Parameters) extends NSModule {
     
     val state = RegInit(s_idle)
     
-    val fsm_paddr      = RegInit(0.U(32.W))
+    val fsm_paddr      = RegInit(0.U(XLEN.W))
     val fsm_ptag       = RegInit(0.U(tagBitsI.W))
     val fsm_vidx       = RegInit(0.U(idxBitsI.W))
     val fsm_is_uncache = RegInit(false.B)

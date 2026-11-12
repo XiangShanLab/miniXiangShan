@@ -7,10 +7,10 @@ import minixiangshan.config._
 import minixiangshan.backend.decode.LsuOp
 
 /* ============================================================================
- *  RISC-V Sv32 MMU
+ *  RISC-V Sv39 MMU
  *
  *  · satp.MODE = 0 (Bare)：恒等映射
- *  · satp.MODE = 1 (Sv32)：TLB 查找 + 硬件页表遍历（TLB 缺失时）
+ *  · satp.MODE = 8 (Sv39)：TLB 查找 + 三级硬件页表遍历
  *  · 两个翻译端口（取指 / 访存）共享一个页表遍历器，按轮转仲裁
  *  · Bare 取指和数据请求各走独立的一级弹性流水线
  *  · 权限检查：R/W/X 位、U 位、SUM、MXR
@@ -32,7 +32,9 @@ class Mmu(implicit p: Parameters) extends NSModule with HasCsrParameters {
   ptw.io.l2.resp.bits   := io.ptwRead.resp.bits
 
   // ---------------- satp ----------------
-  val sv32 = io.fromCsr.satp(SATP_MODE_BIT)
+  val sv39 = io.fromCsr.satp(63, 60) === 8.U
+  val pagedI = sv39 && io.fromCsr.priv =/= PRIV_M_VAL.U
+  val pagedM = sv39 && io.fromCsr.dataPriv =/= PRIV_M_VAL.U
   val asid = io.fromCsr.satp(SATP_ASID_HI, SATP_ASID_LO)
 
   // ---------------- 状态机 ----------------
@@ -58,19 +60,19 @@ class Mmu(implicit p: Parameters) extends NSModule with HasCsrParameters {
   val bareIcacheResp = RegInit(0.U.asTypeOf(new MmuToIcache))
   val sharedMemBusy = (state =/= sIdle) && (curPort === 1.U)
   val sharedIcacheBusy = (state =/= sIdle) && (curPort === 0.U)
-  val sharedMemPending = sv32 && io.fromMem.valid && !bareMemValid
-  val sharedIcachePending = sv32 && io.fromIcache.valid && !bareIcacheValid
+  val sharedMemPending = pagedM && io.fromMem.valid && !bareMemValid
+  val sharedIcachePending = pagedI && io.fromIcache.valid && !bareIcacheValid
 
   // ---------------- 输入仲裁（轮转） ----------------
   val prioIcache = !lastServ
-  val acceptI = io.fromIcache.fire && sv32 && !io.fromIcacheFlush
-  val acceptM = io.fromMem.fire && sv32 && !io.fromMemFlush
+  val acceptI = io.fromIcache.fire && pagedI && !io.fromIcacheFlush && !io.tlbFlush.valid
+  val acceptM = io.fromMem.fire && pagedM && !io.fromMemFlush && !io.tlbFlush.valid
 
-  io.fromIcache.ready := Mux(sv32,
-    (state === sIdle) && !bareIcacheValid && (!sharedMemPending || prioIcache),
+  io.fromIcache.ready := Mux(pagedI,
+    (state === sIdle) && !io.tlbFlush.valid && !bareIcacheValid && (!sharedMemPending || prioIcache),
     !sharedIcacheBusy && (!bareIcacheValid || io.toIcache.ready))
-  io.fromMem.ready := Mux(sv32,
-    (state === sIdle) && !bareMemValid && (!sharedIcachePending || !prioIcache),
+  io.fromMem.ready := Mux(pagedM,
+    (state === sIdle) && !io.tlbFlush.valid && !bareMemValid && (!sharedIcachePending || !prioIcache),
     !sharedMemBusy && (!bareMemValid || io.toMem.ready))
 
   val inVaddr = Mux(acceptI, io.fromIcache.bits.vaddr, io.fromMem.bits.vaddr)
@@ -86,7 +88,8 @@ class Mmu(implicit p: Parameters) extends NSModule with HasCsrParameters {
 
   val tlbHit      = tlb.io.lookup.resp.hit
   val tlbHitPaddr = Cat(tlb.io.lookup.resp.ppn, inVaddr(pageOffLen - 1, 0))
-  val needWalk    = sv32 && !tlbHit
+  val canonical = inVaddr(63, 39) === Fill(25, inVaddr(38))
+  val needWalk = !tlbHit && canonical
 
   // ---------------- 权限检查 ----------------
   def permFault(r: Bool, w: Bool, x: Bool, u: Bool, acc: UInt, priv: UInt): Bool = {
@@ -117,12 +120,12 @@ class Mmu(implicit p: Parameters) extends NSModule with HasCsrParameters {
   // Select held responses by their saved valid bits, not the current satp.
   when(io.fromIcacheFlush) {
     bareIcacheValid := false.B
-  }.elsewhen(!sv32 && io.fromIcache.ready) {
+  }.elsewhen(!pagedI && io.fromIcache.ready) {
     bareIcacheValid := io.fromIcache.valid
   }.elsewhen(io.toIcache.fire) {
     bareIcacheValid := false.B
   }
-  when(io.fromIcache.fire && !sv32) {
+  when(io.fromIcache.fire && !pagedI) {
     val misalign = fetchMisalign(io.fromIcache.bits.vaddr)
     bareIcacheResp.paddr := io.fromIcache.bits.vaddr
     bareIcacheResp.cacheable := isCacheable(io.fromIcache.bits.vaddr)
@@ -134,12 +137,12 @@ class Mmu(implicit p: Parameters) extends NSModule with HasCsrParameters {
 
   when(io.fromMemFlush) {
     bareMemValid := false.B
-  }.elsewhen(!sv32 && io.fromMem.ready) {
+  }.elsewhen(!pagedM && io.fromMem.ready) {
     bareMemValid := io.fromMem.valid
   }.elsewhen(io.toMem.fire) {
     bareMemValid := false.B
   }
-  when(io.fromMem.fire && !sv32) {
+  when(io.fromMem.fire && !pagedM) {
     val misalign = memMisalign(io.fromMem.bits.vaddr, io.fromMem.bits.lsuOp)
     bareMemResp.paddr := io.fromMem.bits.vaddr
     bareMemResp.cacheable := isCacheable(io.fromMem.bits.vaddr)
@@ -164,6 +167,7 @@ class Mmu(implicit p: Parameters) extends NSModule with HasCsrParameters {
   tlb.io.fill.x     := false.B
   tlb.io.fill.u     := false.B
   tlb.io.fill.g     := false.B
+  tlb.io.fill.d     := false.B
 
   // PTW 返回结果的权限检查
   val ptwPermFault = permFault(ptw.io.resp.bits.r, ptw.io.resp.bits.w,
@@ -180,11 +184,11 @@ class Mmu(implicit p: Parameters) extends NSModule with HasCsrParameters {
         reqAcc   := inAcc
         reqPriv  := inPriv
         when(!needWalk) {
-          // Bare 模式或 TLB 命中
-          respPaddr     := Mux(sv32, tlbHitPaddr, inVaddr)
+          respPaddr     := tlbHitPaddr
           respMisalign  := Mux(acceptI, fetchMisalign(inVaddr),
                                memMisalign(inVaddr, io.fromMem.bits.lsuOp))
-          respPageFlt   := sv32 && permFault(tlb.io.lookup.resp.r, tlb.io.lookup.resp.w,
+          respPageFlt   := !canonical || (inAcc === MmuAccType.store && !tlb.io.lookup.resp.d) ||
+                            permFault(tlb.io.lookup.resp.r, tlb.io.lookup.resp.w,
                                              tlb.io.lookup.resp.x, tlb.io.lookup.resp.u,
                                              inAcc, inPriv)
           respAccessFlt := false.B
@@ -199,7 +203,7 @@ class Mmu(implicit p: Parameters) extends NSModule with HasCsrParameters {
     is(sWalk) {
       when(ptw.io.resp.valid) {
         val pr = ptw.io.resp.bits
-        when(!pr.fault) {
+        when(!pr.fault && !io.tlbFlush.valid && !io.fromIcacheFlush && !io.fromMemFlush) {
           tlb.io.fill.valid := true.B
           tlb.io.fill.vpn   := pr.vpn
           tlb.io.fill.asid  := asid
@@ -209,6 +213,7 @@ class Mmu(implicit p: Parameters) extends NSModule with HasCsrParameters {
           tlb.io.fill.x     := pr.x
           tlb.io.fill.u     := pr.u
           tlb.io.fill.g     := pr.g
+          tlb.io.fill.d     := pr.d
         }
         respPaddr     := pr.paddr
         respMisalign  := Mux(curPort === 0.U, fetchMisalign(reqVaddr),

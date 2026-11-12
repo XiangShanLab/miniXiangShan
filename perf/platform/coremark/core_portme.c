@@ -44,47 +44,20 @@ static unsigned long long timed_instret;
 #if !defined(COREMARK_HOST)
 
 static inline void reset_counters(void) {
-#if __riscv_xlen == 32
-  __asm__ volatile("csrw mcycle, zero\n"
-                   "csrw mcycleh, zero\n"
-                   "csrw minstret, zero\n"
-                   "csrw minstreth, zero" ::: "memory");
-#else
   __asm__ volatile("csrw mcycle, zero\n"
                    "csrw minstret, zero" ::: "memory");
-#endif
 }
 
 static inline unsigned long long read_mcycle64(void) {
-#if __riscv_xlen == 32
-  uint32_t hi, lo, hi_again;
-  do {
-    __asm__ volatile("csrr %0, mcycleh" : "=r"(hi));
-    __asm__ volatile("csrr %0, mcycle" : "=r"(lo));
-    __asm__ volatile("csrr %0, mcycleh" : "=r"(hi_again));
-  } while (hi != hi_again);
-  return ((unsigned long long)hi << 32) | lo;
-#else
   unsigned long long value;
   __asm__ volatile("csrr %0, mcycle" : "=r"(value));
   return value;
-#endif
 }
 
 static inline unsigned long long read_minstret64(void) {
-#if __riscv_xlen == 32
-  uint32_t hi, lo, hi_again;
-  do {
-    __asm__ volatile("csrr %0, minstreth" : "=r"(hi));
-    __asm__ volatile("csrr %0, minstret" : "=r"(lo));
-    __asm__ volatile("csrr %0, minstreth" : "=r"(hi_again));
-  } while (hi != hi_again);
-  return ((unsigned long long)hi << 32) | lo;
-#else
   unsigned long long value;
   __asm__ volatile("csrr %0, minstret" : "=r"(value));
   return value;
-#endif
 }
 
 #endif /* !COREMARK_HOST */

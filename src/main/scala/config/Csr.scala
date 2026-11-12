@@ -6,7 +6,7 @@ import chisel3._
  *  RISC-V 特权架构相关常量与字段布局
  *
  *  参考：The RISC-V Instruction Set Manual, Volume II: Privileged Architecture
- *        v1.12（RV32 + M/S/U + Sv32）
+ *        RV64 + M/S/U + Sv39
  * ==========================================================================*/
 object CsrConfigKeys {
   // ---- 特权级编码（2 bit）----
@@ -37,15 +37,15 @@ object CsrConfigKeys {
   val IRQ_MEI = new Field[Int](11)
 
   // ---- mtvec / stvec ----
-  val TVEC_BASE = new Field[(Int, Int)]((31, 2))
+  val TVEC_BASE = new Field[(Int, Int)]((63, 2))
   val TVEC_MODE = new Field[(Int, Int)]((1, 0))
 
   // ---- satp ----
-  val SATP_MODE = new Field[Int](31)
-  val SATP_ASID = new Field[(Int, Int)]((30, 22))
-  val SATP_PPN  = new Field[(Int, Int)]((21, 0))
+  val SATP_MODE = new Field[Int](60)
+  val SATP_ASID = new Field[(Int, Int)]((59, 44))
+  val SATP_PPN  = new Field[(Int, Int)]((43, 0))
 
-  // ---- Sv32 页表项 PTE ----
+  // ---- Sv39 页表项 PTE ----
   val PTE_V = new Field[Int](0)
   val PTE_R = new Field[Int](1)
   val PTE_W = new Field[Int](2)
@@ -54,21 +54,19 @@ object CsrConfigKeys {
   val PTE_G = new Field[Int](5)
   val PTE_A = new Field[Int](6)
   val PTE_D = new Field[Int](7)
-  val PTE_PPN = new Field[(Int, Int)]((31, 10))
+  val PTE_PPN = new Field[(Int, Int)]((53, 10))
 
   // ---- 几何参数 ----
-  val VPN_LEN       = new Field[Int](20) // Sv32 虚拟页号总位宽
-  val VPN_LEVEL_LEN = new Field[Int](10) // 每一级页表的 VPN 位宽
-  val TLB_ASID_LEN  = new Field[Int](9)  // satp.ASID
-  // 本实现的物理地址为 32 bit，因此有效 PPN 为 20 bit
-  // （PTE 中的 PPN 域仍是 22 bit，高位在 32 bit 物理地址下被忽略）
-  val PPN_LEN       = new Field[Int](20) // Sv32 有效物理页号
+  val VPN_LEN       = new Field[Int](27)
+  val VPN_LEVEL_LEN = new Field[Int](9)
+  val TLB_ASID_LEN  = new Field[Int](16)
+  val PPN_LEN       = new Field[Int](44)
   val PAGE_OFF_LEN  = new Field[Int](12)
   val CSR_ADDR_LEN  = new Field[Int](12)
   val PRIV_LEN      = new Field[Int](2)
   val IRQ_WIDTH     = new Field[Int](12)
   val TIMER_LEN     = new Field[Int](64)
-  val ISA           = new Field[String]("RV32IM")
+  val ISA           = new Field[String]("RV64IM")
 }
 
 trait HasCsrParameters {

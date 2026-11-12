@@ -16,7 +16,7 @@ class UpperImmediateHarness(xlen: Int) extends Module {
 }
 
 class ImmGenSpec extends AnyFlatSpec with ChiselScalatestTester {
-  for (xlen <- Seq(32, 64)) {
+  for (xlen <- Seq(64)) {
     it should s"generate signed U immediates without zero-width hardware at XLEN=$xlen" in {
       test(new UpperImmediateHarness(xlen)).withAnnotations(
         Seq(TargetDirAnnotation(s"target/immgen-test-$xlen"))) { dut =>

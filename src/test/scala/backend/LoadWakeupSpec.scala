@@ -59,7 +59,7 @@ class LoadWakeupHarness(implicit p: Parameters) extends NSModule {
 }
 
 class LoadWakeupSpec extends AnyFlatSpec with ChiselScalatestTester {
-  for (xlen <- Seq(32, 64)) {
+  for (xlen <- Seq(64)) {
     it should s"wake load consumers with correct PRF data and cancellation at XLEN=$xlen" in {
       implicit val p: Parameters = new Parameters(Map(CoreConfigKeys.XLEN -> xlen))
       test(new LoadWakeupHarness).withAnnotations(Seq(VerilatorBackendAnnotation,

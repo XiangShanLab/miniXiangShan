@@ -1,7 +1,8 @@
 # miniXiangShan
 
-这是 miniXiangShan 乱序核的独立仓库。默认 `simu`/`fpga` 配置保持 RV32；
-性能实验把 miniXiangShan 配置为 RV64，使其与 NutShell 运行同一份机器码。
+这是 miniXiangShan RV64 乱序核的独立仓库。`simu`、`fpga` 和 `perf` 均使用
+RV64IM，支持 Zicsr/Zifencei、M/S/U 特权模式与 Bare/Sv39 地址翻译。
+性能实验与 NutShell 运行同一份 RV64 机器码。
 miniXiangShan 本体在 `src/`，性能实验在 `perf/`；两者共用仓库根目录的
 `build.sbt` 和 `Makefile`。
 
@@ -31,7 +32,7 @@ miniXiangShan 本体在 `src/`，性能实验在 `perf/`；两者共用仓库根
 - JDK、sbt：生成 miniXiangShan RTL。
 - mill：生成 NutShell RTL。
 - Verilator：两个 RTL 仿真器。
-- `riscv64-unknown-elf-gcc` 和 binutils：RV32/RV64 CoreMark 镜像。
+- `riscv64-unknown-elf-gcc` 和 binutils：RV64 CoreMark 镜像。
 - C 编译器 `cc`：CoreMark host 参考程序。
 - Git 和网络：首次获取外部源码；之后使用 `.deps/` 缓存。
 
@@ -46,7 +47,7 @@ make perf
 
 1. 从官方 Git 仓库检出固定版本的 NutShell 与 CoreMark。
 2. 应用 `perf/patches/` 中的 NutShell/CoreMark 补丁。
-3. 构建 CoreMark host 参考以及 RV32/RV64 裸机镜像。
+3. 构建 CoreMark host 参考以及 RV64 裸机镜像。
 4. 生成并构建 miniXiangShan 与 NutShell 的 Verilator 模型。
 5. 在同一个 AXI4 DRAM/MMIO/console 平台上运行 CoreMark。
 6. 校验 host 和两个 RTL 运行的 CoreMark CRC，再比较 cycles、instret 和 IPC。
@@ -82,7 +83,20 @@ cycles_ratio=0.955742 instret_ratio=0.999999 ipc_ratio=1.046306
 ```
 
 mini 比 NutShell 少用 4.43% 周期（同频率比较，未测量综合频率）。
-`make test-pipeline` 运行 RV32/RV64 访存、唤醒和取指功能回归。
+`make test-pipeline` 运行 RV64 访存、唤醒和取指功能回归；`make test` 运行全部模块测试。
+
+## 核心配置
+
+所有入口仅支持 `XLEN=64`，不再生成 RV32 核。PC、寄存器、CSR、调试接口、
+Cache 地址和顶层 AXI3 地址/数据均为 64 位；指令编码仍为 32 位。
+Sv39 使用 16 位 ASID、44 位 PPN，支持 4 KiB、2 MiB 和 1 GiB 页。
+A/D 位由软件维护，A=0 或写访问 D=0 时产生页错误（Svade）；PMP/PMA 检查尚未实现。
+
+`make sim` 生成带 Difftest 接口的 RTL，需要外部测试平台提供对应的 64 位
+CSR DPI 黑盒和 RV64 参考模型；`make fpga` 生成 FPGA RTL，外部互联和存储 IP
+须匹配新的 64 位 AXI3 接口，BPU/L1/L2 的 RAM IP 也须按生成模块的位宽重新配置。
+`make perf` 的共享 AXI4 平台仍限定为 32 位
+物理地址窗口，桥接时检查地址高位，避免静默截断。
 
 ## 外部源码策略
 

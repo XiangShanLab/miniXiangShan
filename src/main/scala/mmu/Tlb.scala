@@ -6,12 +6,12 @@ import chisel3.util._
 import minixiangshan.config._
 
 /* ============================================================================
- *  Sv32 全相联 TLB
+ *  Sv39 全相联 TLB
  *
  *  · 4KB 页粒度，表项保存 VPN / ASID / PPN 与 RISC-V PTE 权限位
  *  · 组合查找（供取指与访存两个端口使用）
  *  · 页表遍历命中后由 MMU 写入（fill）
- *  · sfence.vma 冲刷（全表 / 按 VPN / 按 ASID）
+ *  · sfence.vma 按 ASID 或全表冲刷，地址定向请求保守扩大冲刷范围
  * ==========================================================================*/
 class Tlb(implicit p: Parameters) extends NSModule with HasCsrParameters {
   val io = IO(new Bundle {
@@ -40,6 +40,7 @@ class Tlb(implicit p: Parameters) extends NSModule with HasCsrParameters {
   io.lookup.resp.x   := hitE.x
   io.lookup.resp.u   := hitE.u
   io.lookup.resp.g   := hitE.g
+  io.lookup.resp.d   := hitE.d
 
   // ---------------- 填充（优先使用无效表项，否则轮转替换） ----------------
   val invalidVec = VecInit(entries.map(e => !e.valid))
@@ -58,21 +59,17 @@ class Tlb(implicit p: Parameters) extends NSModule with HasCsrParameters {
     entries(fillIdx).x     := io.fill.x
     entries(fillIdx).u     := io.fill.u
     entries(fillIdx).g     := io.fill.g
+    entries(fillIdx).d     := io.fill.d
     rrPtr := Mux(fillIdx === (nrTlb - 1).U, 0.U, fillIdx + 1.U)
   }
 
   // ---------------- sfence.vma 冲刷 ----------------
   when(io.flush.valid) {
-    val flushVpn = io.flush.vaddr(vpnLen + pageOffLen - 1, pageOffLen)
     for (i <- 0 until nrTlb) {
-      val vpnHit  = entries(i).vpn === flushVpn
-      val asidHit = entries(i).g || (entries(i).asid === io.flush.asid)
-      val clr = MuxCase(true.B, Seq(
-        (io.flush.all && !io.flush.noAsid)  -> asidHit,
-        (io.flush.all && io.flush.noAsid)   -> true.B,
-        (!io.flush.all && io.flush.noAsid)  -> vpnHit,
-        (!io.flush.all && !io.flush.noAsid) -> (vpnHit && asidHit)
-      ))
+      val asidHit = !entries(i).g && (entries(i).asid === io.flush.asid)
+      // A superpage may have several cached 4 KiB VPNs. Overinvalidate the
+      // address scope so an SFENCE for its leaf cannot leave sibling VPNs stale.
+      val clr = io.flush.noAsid || asidHit
       when(clr) { entries(i).valid := false.B }
     }
   }

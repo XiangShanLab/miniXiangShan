@@ -5,7 +5,7 @@
 #   make perf       : 完整构建并运行 CoreMark 对比（唯一性能入口）
 #   make clean      : 删除全部生成物和外部依赖缓存，恢复初次克隆状态
 
-.PHONY: all sim fpga perf test-mmu test-pipeline clean help
+.PHONY: all sim fpga perf test test-mmu test-pipeline clean help
 .DEFAULT_GOAL := sim
 
 SHELL := /bin/bash
@@ -31,6 +31,9 @@ $(TOP_V): $(SCALA_FILES)
 perf:
 	./perf/run.sh
 
+test:
+	$(SBT) --server -batch test
+
 test-mmu:
 	$(SBT) --server -batch "testOnly minixiangshan.mmu.*Spec"
 
@@ -49,6 +52,7 @@ help:
 	@echo "make / make sim : 生成仿真版 RTL -> $(RTL_DIR)"
 	@echo "make fpga       : 生成上板版 RTL -> $(RTL_DIR)"
 	@echo "make perf       : 构建并运行 NutShell vs miniXiangShan CoreMark 对比"
-	@echo "make test-mmu   : 运行 RV32/RV64 MMU 功能与流水线回归"
+	@echo "make test      : 运行全部 RV64 模块回归"
+	@echo "make test-mmu   : 运行 RV64 MMU 功能与流水线回归"
 	@echo "make test-pipeline : 运行访存、提前唤醒和取指流水线回归"
 	@echo "make clean      : 删除所有 .gitignore 生成物，恢复初次克隆状态"

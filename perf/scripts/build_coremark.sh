@@ -80,7 +80,6 @@ build_isa() {
   od -An -v -tx8 "$bin" | tr -s ' ' '\n' | sed '/^$/d' > "$hex"
 }
 
-build_isa rv32 rv32im_zicsr ilp32
 build_isa rv64 rv64im_zicsr lp64
 
 HOST_BIN="$BUILD_DIR/coremark-host"
@@ -98,7 +97,7 @@ for expected in 'seedcrc=0xe9f5' 'crclist=0xe714' 'crcmatrix=0x1fd7' 'crcstate=0
   }
 done
 
-"$RISCV_SIZE" "$BUILD_DIR/coremark-rv32.elf" "$BUILD_DIR/coremark-rv64.elf"
+"$RISCV_SIZE" "$BUILD_DIR/coremark-rv64.elf"
 {
   echo "ITERATIONS=$ITERATIONS"
   echo "TOTAL_DATA_SIZE=$TOTAL_DATA_SIZE"
@@ -106,4 +105,4 @@ done
   echo "CFLAGS=${COMMON_CFLAGS[*]}"
 } > "$BUILD_DIR/build-info.txt"
 
-echo "CoreMark host reference and RV32/RV64 images are ready in $BUILD_DIR"
+echo "CoreMark host reference and RV64 image are ready in $BUILD_DIR"

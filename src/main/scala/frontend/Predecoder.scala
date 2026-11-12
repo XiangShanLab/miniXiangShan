@@ -28,7 +28,7 @@ class Predecoder(implicit p: Parameters) extends NSModule {
   val s_valid    = RegInit(false.B)
   val s_instrs   = RegInit(VecInit(Seq.fill(fetchWidth)(0.U(32.W))))
   val s_valids   = RegInit(VecInit(Seq.fill(fetchWidth)(false.B)))
-  val s_addr     = RegInit(0.U(32.W))
+  val s_addr     = RegInit(0.U(XLEN.W))
   val s_uncached = RegInit(false.B)
   val s_mmuError = RegInit(0.U.asTypeOf(new FetchMmuError))
   val s_bpu      = RegInit(0.U.asTypeOf(new bpuInfoBundle))
@@ -57,12 +57,12 @@ class Predecoder(implicit p: Parameters) extends NSModule {
   // ================================================================
  
   // ---- Step 1: 逐条指令基础预译码（纯组合，每信号赋值一次） ----
-  val pc         = Wire(Vec(fetchWidth, UInt(32.W)))
+  val pc         = Wire(Vec(fetchWidth, UInt(XLEN.W)))
   val isJalInst  = Wire(Vec(fetchWidth, Bool()))   
   val isJirlInst = Wire(Vec(fetchWidth, Bool()))   
   val isBrInst   = Wire(Vec(fetchWidth, Bool()))   
   val isCfiInst  = Wire(Vec(fetchWidth, Bool()))   
-  val jalTgt     = Wire(Vec(fetchWidth, UInt(32.W)))  
+  val jalTgt     = Wire(Vec(fetchWidth, UInt(XLEN.W)))
  
   for (i <- 0 until fetchWidth) {
     val instr  = s_instrs(i)
@@ -77,7 +77,7 @@ class Predecoder(implicit p: Parameters) extends NSModule {
  
     // J 型立即数：imm[20|10:1|11|19:12]
     val imm20         = Cat(instr(31), instr(19, 12), instr(20), instr(30, 21))
-    val jalOffsetSext = Cat(Fill(11, instr(31)), imm20, 0.U(1.W))
+    val jalOffsetSext = Cat(Fill(XLEN - 21, instr(31)), imm20, 0.U(1.W))
     jalTgt(i)        := Mux(v, pc(i) + jalOffsetSext, 0.U)
   }
  
@@ -139,7 +139,7 @@ class Predecoder(implicit p: Parameters) extends NSModule {
  
   // 【修改逻辑】：注册一拍的重定向信号
   val pendingRedirect = RegInit(false.B)
-  val pendingRedirectTarget = RegInit(0.U(32.W))
+  val pendingRedirectTarget = RegInit(0.U(XLEN.W))
 
   // 当指令成功发射(outFire)且需要重定向时，锁存信号并延迟一拍发出
   when(outFire && needRedirect) {

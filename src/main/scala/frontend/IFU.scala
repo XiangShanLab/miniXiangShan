@@ -25,7 +25,7 @@ class IFU(implicit p: Parameters) extends NSModule {
     val predictResp  = Input(new BpuPredictResp)
     // ICache接口
     val icache_req = new Bundle {
-      val addr  = Output(UInt(32.W))
+      val addr  = Output(UInt(XLEN.W))
       val valid = Output(Bool())
       val ready = Input(Bool())
       val flush  = Output(Bool())
@@ -35,7 +35,7 @@ class IFU(implicit p: Parameters) extends NSModule {
 
   })
   // ==================== PC生成单元 ====================
-  val pcReg    = RegInit(resetPC.U(32.W))
+  val pcReg    = RegInit(resetPC.U(XLEN.W))
   val pcValid  = RegInit(false.B)
   pcValid := RegNext(true.B)
   diffDontTouch(pcValid)
@@ -47,7 +47,7 @@ class IFU(implicit p: Parameters) extends NSModule {
   val instsInLine   = bytesInLine >> 2
   val crossLine     = instsInLine < fetchWidth.U
   val seqPC         = Mux(crossLine,
-                          Cat(pcReg(31, blockOffBits) + 1.U, 0.U(blockOffBits.W)),
+                          Cat(pcReg(XLEN - 1, blockOffBits) + 1.U, 0.U(blockOffBits.W)),
                           pcReg + (fetchWidth * 4).U)
   val fallThroughPC = seqPC
  

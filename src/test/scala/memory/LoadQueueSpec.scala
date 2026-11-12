@@ -12,14 +12,14 @@ import org.scalatest.flatspec.AnyFlatSpec
 import scala.util.Random
 
 class LoadQueueSpec extends AnyFlatSpec with ChiselScalatestTester {
-  for (xlen <- Seq(32, 64)) {
+  for (xlen <- Seq(64)) {
     it should s"issue safe loads early while preserving SQ ordering and forwarding at XLEN=$xlen" in {
       implicit val p: Parameters = new Parameters(Map(CoreConfigKeys.XLEN -> xlen))
       test(new LoadQueue).withAnnotations(Seq(VerilatorBackendAnnotation,
         VerilatorCFlags(Seq("-DWData=IData")),
         TargetDirAnnotation(s"target/lq-fast-$xlen"))) { dut =>
         dut.clock.setTimeout(0)
-        val addr = BigInt("80001000", 16)
+        val addr = BigInt("180001000", 16)
         def inputs(): Unit = {
           zero(dut.io.enq)
           zero(dut.io.addrWrite)
@@ -150,6 +150,12 @@ class LoadQueueSpec extends AnyFlatSpec with ChiselScalatestTester {
         dut.io.sqForwardInfo(0).addrValid.poke(false.B)
         prime()
         dut.io.dcacheReq.valid.expect(false.B)
+
+        // A different physical page with the same low 32 bits cannot forward.
+        reset()
+        store(address = addr - (BigInt(1) << 32))
+        val highIdx = prime()
+        complete(highIdx, BigInt("1122334455667788", 16))
 
         // Forward byte lanes with sign extension; do not also issue to cache.
         reset()

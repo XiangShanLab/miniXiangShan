@@ -13,7 +13,7 @@ import minixiangshan.config.Parameters  // 导入Parameters类型
 
 class AXI3ARData(implicit p: Parameters) extends NSBundle {
   val arid    = UInt(4.W)
-  val araddr  = UInt(32.W)
+  val araddr  = UInt(XLEN.W)
   val arlen   = UInt(8.W)
   val arsize  = UInt(3.W)
   val arburst = UInt(2.W)
@@ -34,7 +34,7 @@ class AXI3RData(implicit p: Parameters) extends NSBundle {
 // AXI3 AW通道数据（纯数据，无方向）
 class AXI3AWData(implicit p: Parameters) extends NSBundle {
   val awid    = UInt(4.W)
-  val awaddr  = UInt(32.W)
+  val awaddr  = UInt(XLEN.W)
   val awlen   = UInt(8.W)
   val awsize  = UInt(3.W)
   val awburst = UInt(2.W)

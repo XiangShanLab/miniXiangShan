@@ -65,7 +65,7 @@ make perf
 | `results/commit-windows.tsv` | 每 4096 条退休指令一个窗口的周期、IPC、空窗和类别计数 |
 | `results/commit-summary.txt` | 窗口差值的聚合归因和热点列表 |
 | `.build/coremark/coremark-host.txt` | host CoreMark 参考输出 |
-| `.build/coremark/coremark-rv{32,64}.{elf,bin,hex}` | 两个裸机镜像 |
+| `.build/coremark/coremark-rv64.{elf,bin,hex}` | RV64 裸机镜像 |
 | `.build/obj-{mini,nutshell}/` | 两个 Verilator 模型及可执行文件 |
 | `.build/traces/coremark-{nutshell,mini}.tsv` | 两侧原始 ROB 退休窗口轨迹 |
 | `.deps/versions.txt` | 实际检出的仓库提交与 difftest 提交 |
@@ -111,7 +111,6 @@ sim_cycles=从复位开始的仿真周期数（不参与比较）
 `platform/coremark/` 中的裸机 port，生成：
 
 - host 参考程序，用于确认 seed 与 sub-CRC 正确；
-- `rv32im_zicsr/ilp32` 镜像保留给 miniXiangShan 的 RV32 配置；
 - `rv64im_zicsr/lp64` 镜像供本次对比中的 miniXiangShan 和 NutShell 共同使用。
 
 host 只要缺少 `seedcrc=0xe9f5`、任一 sub-CRC 或 `errors=0` 就立即失败。
@@ -120,7 +119,7 @@ host 只要缺少 `seedcrc=0xe9f5`、任一 sub-CRC 或 `errors=0` 就立即失�
 
 `scripts/build_mini.sh` 执行 `minixiangshan.CoreGen perf` 生成
 `out-perf/*.v`，再用 Verilator 编译 `MiniPerfTop`、共享平台和 testbench。
-`perf` 模式在 `CoreGen` 中设置 `XLEN=64`；默认 `simu`/`fpga` 仍是 RV32。
+`simu`、`fpga` 和 `perf` 均使用 RV64；性能平台使用 Bare 地址模式。
 
 ### 4. 构建 NutShell
 

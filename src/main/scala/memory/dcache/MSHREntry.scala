@@ -71,20 +71,20 @@ class MSHREntry(implicit p: Parameters) extends NSModule {
   val ucDataReg      = RegInit(0.U(XLEN.W))
 
   val setIdx = reqPaddr(blockOffBits + idxBitsD - 1, blockOffBits)
-  val refillTag = reqPaddr(31, blockOffBits + idxBitsD)
-  val refillAddr = Cat(reqPaddr(31, blockOffBits), 0.U(blockOffBits.W))
+  val refillTag = reqPaddr(XLEN - 1, blockOffBits + idxBitsD)
+  val refillAddr = Cat(reqPaddr(XLEN - 1, blockOffBits), 0.U(blockOffBits.W))
   val victimAddr = Cat(reqVictimTag, setIdx, 0.U(blockOffBits.W))
 
   io.busy          := state =/= sIdle
   io.done          := state === sDone || state === sUcDone
-  io.blockAddr     := reqPaddr(31, blockOffBits)
+  io.blockAddr     := reqPaddr(XLEN - 1, blockOffBits)
   io.setIdx        := setIdx
   io.mshrVictimWay := reqVictimWay
   io.canAccept     := state === sIdle
   io.isWriteback   := state === sPutLine
   io.isUncache     := reqType =/= MshrReqType.cacheable
   io.fetchDone          := io.done
-  io.fetchDoneBlockAddr := reqPaddr(31, blockOffBits)
+  io.fetchDoneBlockAddr := reqPaddr(XLEN - 1, blockOffBits)
   io.uncacheData   := ucDataReg
   io.refillWriteReq := state === sRefillWrite
   io.refillData    := Cat(refillBuf.reverse)

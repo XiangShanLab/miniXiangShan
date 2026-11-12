@@ -61,9 +61,9 @@ class BPU(implicit p: Parameters) extends NSModule {
     // ==================== 预测命中与优先级逻辑 (当前周期使用 pc 校验) ====================
     val fetchOffset = io.predictReq.pc(fetchBlockBitsValue - 1, 2)
     
-    val tag0 = io.predictReq.pc(31, btbIndexBits + fetchBlockBitsValue)
-    val nextBlockBase = Cat(io.predictReq.pc(31, fetchBlockBitsValue) + 1.U, 0.U(fetchBlockBitsValue.W))
-    val tag1 = nextBlockBase(31, btbIndexBits + fetchBlockBitsValue)
+    val tag0 = io.predictReq.pc(XLEN - 1, btbIndexBits + fetchBlockBitsValue)
+    val nextBlockBase = Cat(io.predictReq.pc(XLEN - 1, fetchBlockBitsValue) + 1.U, 0.U(fetchBlockBitsValue.W))
+    val tag1 = nextBlockBase(XLEN - 1, btbIndexBits + fetchBlockBitsValue)
   
     val readIdxReg = RegEnable(readBlockIdx, 0.U(btbIndexBits.W), io.predictReq.rdBpu)
   
@@ -117,7 +117,7 @@ class BPU(implicit p: Parameters) extends NSModule {
   
     when(doUpdate) {
       val updateBlockIdx = update.pc(btbIndexBits + fetchBlockBitsValue - 1, fetchBlockBitsValue)
-      val updateTag      = update.pc(31, btbIndexBits + fetchBlockBitsValue)
+      val updateTag      = update.pc(XLEN - 1, btbIndexBits + fetchBlockBitsValue)
   
       val newEntry = Wire(new BTBEntryNoValid)
       newEntry.tag    := updateTag
@@ -213,7 +213,7 @@ class BPU(implicit p: Parameters) extends NSModule {
       val pc_i   = curPC + (i * 4).U
       val bank   = pc_i(3, 2)
       val btbIdx = pc_i(btbIndexBits + 3, 4)
-      val tag    = pc_i(31, btbIndexBits + 4)
+      val tag    = pc_i(XLEN - 1, btbIndexBits + 4)
    
       // 读取合并数据并拆解
       val mergedData = MuxLookup(bank, 0.U, (0 until 4).map(b => b.U -> btbPhtMems(b).io.rd_data))
@@ -223,7 +223,7 @@ class BPU(implicit p: Parameters) extends NSModule {
       phtCounters(i) := mergedData(1, 0)
       entryValids(i) := valid
    
-      crossLines(i) := pc_i(31, cacheLineBits) =/= curPC(31, cacheLineBits)
+      crossLines(i) := pc_i(XLEN - 1, cacheLineBits) =/= curPC(XLEN - 1, cacheLineBits)
       btbHits(i) := !crossLines(i) && valid && (btbEntries(i).tag === tag)
    
       val phtTaken = phtCounters(i)(1)
@@ -268,7 +268,7 @@ class BPU(implicit p: Parameters) extends NSModule {
       val updatePC     = update.pc
       val updateBank   = updatePC(3, 2)
       val updateBtbIdx = updatePC(btbIndexBits + 3, 4)
-      val updateTag    = updatePC(31, btbIndexBits + 4)
+      val updateTag    = updatePC(XLEN - 1, btbIndexBits + 4)
    
       val newEntry = Wire(new BTBEntryNoValid)
       newEntry.tag    := updateTag

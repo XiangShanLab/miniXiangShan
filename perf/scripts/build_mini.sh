@@ -46,6 +46,7 @@ fi
 
 echo "Building miniXiangShan Verilator model"
 OBJCACHE= verilator --cc --exe --build -j 8 \
+  --assert \
   --top-module MiniPerfTop \
   -Wno-fatal -Wno-lint -Wno-style \
   -O2 --x-assign fast --x-initial fast \

@@ -69,7 +69,7 @@ class MemAddrTransMmuHarness(implicit p: Parameters) extends NSModule {
 }
 
 class MemAddrTransSpec extends AnyFlatSpec with ChiselScalatestTester {
-  for (xlen <- Seq(32, 64)) {
+  for (xlen <- Seq(64)) {
     it should s"keep Bare translations paired with execution metadata at XLEN=$xlen" in {
       implicit val p: Parameters = new Parameters(Map(CoreConfigKeys.XLEN -> xlen))
       test(new MemAddrTransMmuHarness).withAnnotations(
@@ -85,9 +85,8 @@ class MemAddrTransSpec extends AnyFlatSpec with ChiselScalatestTester {
             case _ => 4
           }
           val misalign: Boolean = !scFail && addr % size != 0
-          val low: BigInt = addr & BigInt("ffffffff", 16)
           val cacheable: Boolean = !scFail &&
-            !(low >= BigInt("30000000", 16) && low < BigInt("80000000", 16))
+            !(addr >= BigInt("30000000", 16) && addr < BigInt("80000000", 16))
         }
         val expected = mutable.Queue.empty[Request]
         var accepted = 0

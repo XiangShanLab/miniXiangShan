@@ -16,7 +16,7 @@ class ICache(implicit p: Parameters) extends NSModule {
     val invalidate = Input(Bool())
     // CPU接口
     val cpu_req = Flipped( Decoupled(new Bundle {
-      val addr  = (UInt(32.W))   // 虚拟地址
+      val addr  = (UInt(XLEN.W))   // 虚拟地址
     }))
     
     val icache_resp = Decoupled(new IcacheResp)

@@ -209,7 +209,7 @@ class LoadQueue(implicit p: Parameters) extends NSModule {
     for (lqI <- 0 until LqSize) {
       val e = entries(lqI)
       val isUncache     = !e.cacheable
-      val loadPaddrWord = e.paddr(31, wordAlignBits)
+      val loadPaddrWord = e.paddr(XLEN - 1, wordAlignBits)
    
       lqCanIssue(lqI)    := false.B
       lqDoForward(lqI)   := false.B
@@ -235,7 +235,7 @@ class LoadQueue(implicit p: Parameters) extends NSModule {
           sqOlderAddrUnknown(sqI)  := sqOlderActive(sqI) && !sq.addrValid
           sqOlderUncache(sqI)      := sqOlderActive(sqI) && sq.addrValid && !sq.cacheable
           sqOlderAddrConflict(sqI) := sqOlderActive(sqI) && sq.addrValid && sq.cacheable &&
-                                      (sq.paddr(31, wordAlignBits) === loadPaddrWord)
+                                      (sq.paddr(XLEN - 1, wordAlignBits) === loadPaddrWord)
         }
    
         val hasOlderActive      = sqOlderActive.reduce(_ || _)
@@ -603,7 +603,7 @@ class LoadQueue(implicit p: Parameters) extends NSModule {
     for (lqI <- 0 until LqSize) {
       val e = entries(lqI)
       val isUncache     = !e.cacheable
-      val loadPaddrWord = e.paddr(31, wordAlignBits)
+      val loadPaddrWord = e.paddr(XLEN - 1, wordAlignBits)
    
       lqCanIssue(lqI)    := false.B
       lqDoForward(lqI)   := false.B
@@ -627,7 +627,7 @@ class LoadQueue(implicit p: Parameters) extends NSModule {
           sqOlderAddrUnknown(sqI)  := sqOlderActive(sqI) && !sq.addrValid
           sqOlderUncache(sqI)      := sqOlderActive(sqI) && sq.addrValid && !sq.cacheable
           sqOlderAddrConflict(sqI) := sqOlderActive(sqI) && sq.addrValid && sq.cacheable &&
-                                      (sq.paddr(31, wordAlignBits) === loadPaddrWord)
+                                      (sq.paddr(XLEN - 1, wordAlignBits) === loadPaddrWord)
         }
    
         val hasOlderActive      = sqOlderActive.reduce(_ || _)
@@ -983,7 +983,7 @@ class LoadQueue(implicit p: Parameters) extends NSModule {
     for (lqI <- 0 until LqSize) {
       val e = entries(lqI)
       val isUncache     = !e.cacheable
-      val loadPaddrWord = e.paddr(31, wordAlignBits)
+      val loadPaddrWord = e.paddr(XLEN - 1, wordAlignBits)
    
       // 基础条件：有效，地址算出，还没发射，没有异常，没有被冲刷，且尚未被判定为 readyToIssue
       val basicReady = e.valid && e.addrValid && !e.issued &&
@@ -1004,7 +1004,7 @@ class LoadQueue(implicit p: Parameters) extends NSModule {
           sqOlderAddrUnknown(sqI)  := sqOlderActive(sqI) && !sq.addrValid
           sqOlderUncache(sqI)      := sqOlderActive(sqI) && sq.addrValid && !sq.cacheable
           sqOlderAddrConflict(sqI) := sqOlderActive(sqI) && sq.addrValid && sq.cacheable &&
-                                      (sq.paddr(31, wordAlignBits) === loadPaddrWord)
+                                      (sq.paddr(XLEN - 1, wordAlignBits) === loadPaddrWord)
         }
    
         val hasOlderActive      = sqOlderActive.reduce(_ || _)

@@ -10,7 +10,7 @@ import minixiangshan.config._
  *
  *  注意：这些黑盒由仿真测试平台提供实现（chiplab/testbench）。
  *  切换到 RISC-V 后，C 侧需要换成 RISC-V 的 NEMU 参考模型
- *  （riscv32-nemu-interpreter-so），接口信号已按 RISC-V 语义重新命名。
+ *  （riscv64-nemu-interpreter-so），接口信号已按 RISC-V 语义重新命名。
  * ==========================================================================*/
 class DifftestInstrCommit extends BlackBox with HasBlackBoxResource {
   val io = IO(new Bundle {
@@ -79,24 +79,24 @@ class DifftestCSRRegState extends BlackBox with HasBlackBoxResource {
   val io = IO(new Bundle {
     val clock = Input(Clock())
     val coreid = Input(UInt(8.W))
-    val mstatus = Input(UInt(32.W))
-    val misa = Input(UInt(32.W))
-    val medeleg = Input(UInt(32.W))
-    val mideleg = Input(UInt(32.W))
-    val mie = Input(UInt(32.W))
-    val mtvec = Input(UInt(32.W))
-    val mscratch = Input(UInt(32.W))
-    val mepc = Input(UInt(32.W))
-    val mcause = Input(UInt(32.W))
-    val mtval = Input(UInt(32.W))
-    val mip = Input(UInt(32.W))
-    val sstatus = Input(UInt(32.W))
-    val stvec = Input(UInt(32.W))
-    val sscratch = Input(UInt(32.W))
-    val sepc = Input(UInt(32.W))
-    val scause = Input(UInt(32.W))
-    val stval = Input(UInt(32.W))
-    val satp = Input(UInt(32.W))
+    val mstatus = Input(UInt(64.W))
+    val misa = Input(UInt(64.W))
+    val medeleg = Input(UInt(64.W))
+    val mideleg = Input(UInt(64.W))
+    val mie = Input(UInt(64.W))
+    val mtvec = Input(UInt(64.W))
+    val mscratch = Input(UInt(64.W))
+    val mepc = Input(UInt(64.W))
+    val mcause = Input(UInt(64.W))
+    val mtval = Input(UInt(64.W))
+    val mip = Input(UInt(64.W))
+    val sstatus = Input(UInt(64.W))
+    val stvec = Input(UInt(64.W))
+    val sscratch = Input(UInt(64.W))
+    val sepc = Input(UInt(64.W))
+    val scause = Input(UInt(64.W))
+    val stval = Input(UInt(64.W))
+    val satp = Input(UInt(64.W))
     val priv = Input(UInt(2.W))
     val mcycle = Input(UInt(64.W))
     val minstret = Input(UInt(64.W))

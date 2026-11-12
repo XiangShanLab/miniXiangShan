@@ -22,7 +22,7 @@ class Axi3ToAxi4(implicit p: Parameters) extends NSModule {
   // Read address channel
   io.in.ar.arready := io.out.ar.arready
   io.out.ar.data.arid    := io.in.ar.data.arid
-  io.out.ar.data.araddr  := io.in.ar.data.araddr
+  io.out.ar.data.araddr  := io.in.ar.data.araddr(31, 0)
   io.out.ar.data.arlen   := io.in.ar.data.arlen
   io.out.ar.data.arsize  := io.in.ar.data.arsize
   io.out.ar.data.arburst := io.in.ar.data.arburst
@@ -44,7 +44,7 @@ class Axi3ToAxi4(implicit p: Parameters) extends NSModule {
   // Write address channel
   io.in.aw.awready := io.out.aw.awready
   io.out.aw.data.awid    := io.in.aw.data.awid
-  io.out.aw.data.awaddr  := io.in.aw.data.awaddr
+  io.out.aw.data.awaddr  := io.in.aw.data.awaddr(31, 0)
   io.out.aw.data.awlen   := io.in.aw.data.awlen
   io.out.aw.data.awsize  := io.in.aw.data.awsize
   io.out.aw.data.awburst := io.in.aw.data.awburst
@@ -69,4 +69,12 @@ class Axi3ToAxi4(implicit p: Parameters) extends NSModule {
   io.in.b.data.bresp  := io.out.b.data.bresp
   io.in.b.data.bvalid := io.out.b.data.bvalid
   io.out.b.bready     := io.in.b.bready
+
+  // The comparison platform has a 32-bit address map; fail on aliasing.
+  when(io.in.ar.data.arvalid) {
+    assert(io.in.ar.data.araddr(63, 32) === 0.U, "performance read address exceeds platform")
+  }
+  when(io.in.aw.data.awvalid) {
+    assert(io.in.aw.data.awaddr(63, 32) === 0.U, "performance write address exceeds platform")
+  }
 }

@@ -10,7 +10,7 @@
 /.sbt-run/
 /.ivy2/
 target/
-/project/project/
+/project
 /project/metals.sbt
 *.class
 

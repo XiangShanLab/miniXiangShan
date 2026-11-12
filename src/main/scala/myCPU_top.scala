@@ -28,7 +28,7 @@ class core_top(implicit p: Parameters) extends NSRawModule {
  
   // ========== AXI3 AR通道 ==========
   val arid    = IO(Output(UInt(4.W)))
-  val araddr  = IO(Output(UInt(32.W)))
+  val araddr  = IO(Output(UInt(XLEN.W)))
   val arlen   = IO(Output(UInt(8.W)))
   val arsize  = IO(Output(UInt(3.W)))
   val arburst = IO(Output(UInt(2.W)))
@@ -48,7 +48,7 @@ class core_top(implicit p: Parameters) extends NSRawModule {
  
   // ========== AXI3 AW通道 ==========
   val awid    = IO(Output(UInt(4.W)))
-  val awaddr  = IO(Output(UInt(32.W)))
+  val awaddr  = IO(Output(UInt(XLEN.W)))
   val awlen   = IO(Output(UInt(8.W)))
   val awsize  = IO(Output(UInt(3.W)))
   val awburst = IO(Output(UInt(2.W)))
@@ -77,11 +77,11 @@ class core_top(implicit p: Parameters) extends NSRawModule {
   val infor_flag        = IO(Input(Bool()))
   val reg_num           = IO(Input(UInt(5.W)))
   val ws_valid          = IO(Output(Bool()))
-  val rf_rdata          = IO(Output(UInt(32.W)))
-  val debug0_wb_pc      = IO(Output(UInt(32.W)))
+  val rf_rdata          = IO(Output(UInt(XLEN.W)))
+  val debug0_wb_pc      = IO(Output(UInt(XLEN.W)))
   val debug0_wb_rf_wen  = IO(Output(Bool()))
   val debug0_wb_rf_wnum = IO(Output(UInt(5.W)))
-  val debug0_wb_rf_wdata= IO(Output(UInt(32.W)))
+  val debug0_wb_rf_wdata= IO(Output(UInt(XLEN.W)))
   val debug0_wb_inst    = IO(Output(UInt(32.W)))
 
   // ========== 性能对比：ROB 架构提交窗口（只读观测） ==========
@@ -344,10 +344,10 @@ class core_top(implicit p: Parameters) extends NSRawModule {
 
     val legacyCommit = backend.difftest.get.commit(0)
     ws_valid           := legacyCommit.valid
-    debug0_wb_pc       := legacyCommit.pc(31, 0)
+    debug0_wb_pc       := legacyCommit.pc
     debug0_wb_rf_wen   := legacyCommit.valid && legacyCommit.rfWen
     debug0_wb_rf_wnum  := legacyCommit.wdest
-    debug0_wb_rf_wdata := legacyCommit.wdata(31, 0)
+    debug0_wb_rf_wdata := legacyCommit.wdata
     debug0_wb_inst     := legacyCommit.instr
     rf_rdata           := backend.difftest.get.regs(reg_num)
   }

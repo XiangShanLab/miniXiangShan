@@ -18,7 +18,7 @@ object PerfAddressMap {
     val low = paddr(31, 0)
     val internal = (low ^ "h30000000".U(32.W))(31, 28) === 0.U
     val external = (low ^ "h40000000".U(32.W))(31, 30) === 0.U
-    internal || external
+    (paddr < (BigInt(1) << 32).U) && (internal || external)
   }
 
   def isCacheable(paddr: UInt): Bool = !isMMIO(paddr)

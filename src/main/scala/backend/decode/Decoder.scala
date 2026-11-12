@@ -135,7 +135,7 @@ object DecodeTable {
     AUIPC  -> ctrl(FuType.alu, aluOp = AluOp.add,
                    src1Type = SrcType.pc, src2Type = SrcType.imm, immType = ImmType.u),
 
-    // ---------------- RV32M：乘除法 ----------------
+    // ---------------- RV64M：乘除法 ----------------
     MUL    -> ctrl(FuType.mul, mulOp = MulOp.mul),
     MULH   -> ctrl(FuType.mul, mulOp = MulOp.mulh),
     MULHSU -> ctrl(FuType.mul, mulOp = MulOp.mulhsu),
@@ -150,7 +150,7 @@ object DecodeTable {
     REMW   -> ctrl(FuType.div, divOp = DivOp.remw),
     REMUW  -> ctrl(FuType.div, divOp = DivOp.remuw),
 
-    // ---------------- RV32I：访存 ----------------
+    // ---------------- RV64I：访存 ----------------
     LB     -> ctrl(FuType.lsu, aluOp = AluOp.add, lsuOp = LsuOp.lb,
                    src2Type = SrcType.imm, immType = ImmType.i, memRead = y),
     LH     -> ctrl(FuType.lsu, aluOp = AluOp.add, lsuOp = LsuOp.lh,
@@ -184,7 +184,7 @@ object DecodeTable {
                    src2Type = SrcType.zero, immType = ImmType.none, memWrite = y,
                    waitForward = y, blockBackward = y, flushOnCommit = y),
 
-    // ---------------- RV32I：屏障 ----------------
+    // ---------------- RV64I：屏障 ----------------
     FENCE   -> ctrl(FuType.alu, barOp = BarOp.fence,
                     src1Type = SrcType.none, src2Type = SrcType.none,
                     rfWen = n, flushOnCommit = y),
@@ -193,7 +193,7 @@ object DecodeTable {
                     rfWen = n, waitForward = y, blockBackward = y,
                     flushOnCommit = y),
 
-    // ---------------- RV32I：跳转与分支 ----------------
+    // ---------------- RV64I：跳转与分支 ----------------
     JAL    -> ctrl(FuType.bru, bruOp = BruOp.jal,
                    src1Type = SrcType.none, src2Type = SrcType.imm, immType = ImmType.j,
                    isJump = y),
@@ -327,7 +327,7 @@ class Decoder(implicit p: Parameters) extends NSModule {
   // ===========================================================
   val rs1Valid = src1Type === SrcType.reg
   // store 的写数据来自 rs2，需要读寄存器堆
-  val rs2Valid = (src2Type === SrcType.reg) || memWrite
+  val rs2Valid = (src2Type === SrcType.reg) || memWrite || isSfence
   val rdValid  = rfWen
 
   // ===========================================================

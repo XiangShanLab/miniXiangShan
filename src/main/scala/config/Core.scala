@@ -32,7 +32,7 @@ object L2PrefetchMode {
 
 object CoreConfigKeys {
   val ResetPC = new Field[BigInt](BigInt("1bfffffc", 16))
-  val XLEN = new Field[Int](32)
+  val XLEN = new Field[Int](64)
   val FetchWidth = new Field[Int](4)
   val CtrlBlockWidth = new Field[Int](3)
   // 256、128、64
@@ -85,6 +85,7 @@ case class IQParams(
 trait HasCoreParameters {
   implicit def p: Parameters
   val XLEN: Int = p(CoreConfigKeys.XLEN)
+  require(XLEN == 64, "miniXiangShan supports RV64 only")
   val customInstrEnable: Boolean = false
 //>>>>>>> 54959d9721e27e04de23b63d4323d2985b48c173
 
@@ -100,7 +101,7 @@ trait HasCoreParameters {
   val fetchBlockBits: Int = log2Ceil(fetchWidth * 4)
   val btbIndexBits: Int = log2Ceil(BtbPhtSize)
   val phtIndexBits: Int = log2Ceil(BtbPhtSize)
-  val btbTagBits: Int = 32 - fetchBlockBits - btbIndexBits
+  val btbTagBits: Int = XLEN - fetchBlockBits - btbIndexBits
   val fetchOffsetBits: Int = log2Ceil(fetchWidth)
 
   val nSetsI: Int = p(CoreConfigKeys.NSetsI)
@@ -112,9 +113,9 @@ trait HasCoreParameters {
   val wayBitsI = log2Ceil(nWaysI)
   val wayBitsD = log2Ceil(nWaysD)
   val blockOffBits = log2Ceil(blockBytes)
-  val tagBitsI = 32 - idxBitsI - blockOffBits
+  val tagBitsI = XLEN - idxBitsI - blockOffBits
   val idxBitsD = log2Ceil(nSetsD)
-  val tagBitsD = 32 - idxBitsD - blockOffBits
+  val tagBitsD = XLEN - idxBitsD - blockOffBits
 
   val nMshrEntries: Int = p(CoreConfigKeys.NMshrEntries)
   val icacheAxiMissId: Int = nMshrEntries

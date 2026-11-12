@@ -7,7 +7,7 @@ import minixiangshan.config._
 import minixiangshan.backend.decode.LsuOp
 
 /* ============================================================================
- *  Sv32 地址翻译相关数据结构
+ *  Sv39 地址翻译相关数据结构
  * ==========================================================================*/
 
 /** 访问类型：取指 / Load / Store */
@@ -18,7 +18,7 @@ object MmuAccType {
   val store = 2.U(width.W)
 }
 
-/** 全相联 TLB 表项（4KB 页粒度，Sv32） */
+/** 全相联 TLB 表项（大页翻译也按当前 4KB VPN 缓存） */
 class TlbEntry(implicit p: Parameters) extends NSBundle {
   val valid = Bool()
   val vpn   = UInt(vpnLen.W)
@@ -29,6 +29,7 @@ class TlbEntry(implicit p: Parameters) extends NSBundle {
   val x     = Bool()
   val u     = Bool()
   val g     = Bool()
+  val d     = Bool()
 }
 
 class TlbLookupReq(implicit p: Parameters) extends NSBundle {
@@ -45,6 +46,7 @@ class TlbLookupResp(implicit p: Parameters) extends NSBundle {
   val x    = Bool()
   val u    = Bool()
   val g    = Bool()
+  val d    = Bool()
 }
 
 class TlbFill(implicit p: Parameters) extends NSBundle {
@@ -57,6 +59,7 @@ class TlbFill(implicit p: Parameters) extends NSBundle {
   val x     = Bool()
   val u     = Bool()
   val g     = Bool()
+  val d     = Bool()
 }
 
 /** sfence.vma 冲刷请求 */
@@ -112,7 +115,7 @@ class MmuToSqResp(implicit p: Parameters) extends NSBundle {
 
 /** CSR -> MMU 的翻译控制信息 */
 class CsrToMmu(implicit p: Parameters) extends NSBundle {
-  val satp     = UInt(XLEN.W)  // MODE[31] | ASID[30:22] | PPN[21:0]
+  val satp     = UInt(XLEN.W)  // MODE[63:60] | ASID[59:44] | PPN[43:0]
   val priv     = UInt(privLen.W) // 取指特权级
   val dataPriv = UInt(privLen.W) // 数据访问特权级（考虑 mstatus.MPRV）
   val sum      = Bool()
@@ -146,6 +149,7 @@ class PtwResp(implicit p: Parameters) extends NSBundle {
   val x     = Bool()
   val u     = Bool()
   val g     = Bool()
+  val d     = Bool()
   val paddr = UInt(XLEN.W)
 }
 

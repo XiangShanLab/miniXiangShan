@@ -12,9 +12,9 @@ class cache_BlackBox(implicit p: Parameters) extends BlackBox with HasBlackBoxRe
       val axi_master = new AXI3MasterIO
       // 对内CPU接口（预留扩展）
       val cpu_if = new Bundle {
-        val req_addr  = Input(UInt(32.W)) 
+        val req_addr  = Input(UInt(64.W))
         val req_valid = Input(Bool())     
-        val resp_data = Output(UInt(32.W))
+        val resp_data = Output(UInt(64.W))
         val resp_valid = Output(Bool())   
       }
   })
@@ -28,9 +28,9 @@ class uncache1_BlackBox(implicit p: Parameters) extends BlackBox with HasBlackBo
     val axi_master = new AXI3MasterIO
     // 对内CPU接口（预留扩展）
     val cpu_if = new Bundle {
-      val req_addr  = Input(UInt(32.W))  // CPU请求地址
+      val req_addr  = Input(UInt(64.W))  // CPU请求地址
       val req_valid = Input(Bool())     // CPU请求有效
-      val resp_data = Output(UInt(32.W))// Cache返回数据
+      val resp_data = Output(UInt(64.W))// Cache返回数据
       val resp_valid = Output(Bool())   // Cache返回有效
     }
   })
@@ -43,9 +43,9 @@ class uncache2_BlackBox(implicit p: Parameters) extends BlackBox with HasBlackBo
     val axi_master = new AXI3MasterIO
     // 对内CPU接口（预留扩展）
     val cpu_if = new Bundle {
-      val req_addr  = Input(UInt(32.W))  // CPU请求地址
+      val req_addr  = Input(UInt(64.W))  // CPU请求地址
       val req_valid = Input(Bool())     // CPU请求有效
-      val resp_data = Output(UInt(32.W))// Cache返回数据
+      val resp_data = Output(UInt(64.W))// Cache返回数据
       val resp_valid = Output(Bool())   // Cache返回有效
     }
   })

@@ -13,7 +13,7 @@ import minixiangshan.util.BitExt
 //  多周期除法器
 //
 //  支持操作：DIV/DIVU/REM/REMU（XLEN 位）
-//            DIVW/DIVUW/REMW/REMUW（低 32 位运算，结果符号/零扩展）
+//            DIVW/DIVUW/REMW/REMUW（低 32 位运算，结果符号扩展）
 //
 //  算法：恢复余数法（参考 open-la500）
 //        每周期处理1位；XLEN 位除法迭代 XLEN 次，W 型迭代 32 次
@@ -186,9 +186,7 @@ class Divider(implicit p: Parameters) extends NSModule {
   val resultR = Mux(divByZero, origDividend, finalR)
  
   val rawResult = Mux(isMod, resultR, resultQ)
-  val result = Mux(isW,
-    Mux(isSigned, BitExt.sign(rawResult(31, 0), XLEN), BitExt.zero(rawResult(31, 0), XLEN)),
-    rawResult)
+  val result = Mux(isW, BitExt.sign(rawResult(31, 0), XLEN), rawResult)
  
   // ================================================================
   //  输出

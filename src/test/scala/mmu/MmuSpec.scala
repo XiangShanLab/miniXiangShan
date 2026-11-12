@@ -52,7 +52,7 @@ class MmuTestHarness(implicit p: Parameters) extends NSModule {
 }
 
 class MmuSpec extends AnyFlatSpec with ChiselScalatestTester {
-  for (xlen <- Seq(32, 64)) {
+  for (xlen <- Seq(64)) {
     it should s"preserve MMU responses and sustain independent Bare data traffic at XLEN=$xlen" in {
       implicit val p: Parameters = new Parameters(Map(CoreConfigKeys.XLEN -> xlen))
       // chiseltest 0.6 uses WData for wide ports; recent Verilator calls it IData.
@@ -68,8 +68,7 @@ class MmuSpec extends AnyFlatSpec with ChiselScalatestTester {
 
         def flag(value: Bool): Boolean = value.peek().litToBoolean
         def cacheable(addr: BigInt): Boolean = {
-          val low = addr & BigInt("ffffffff", 16)
-          !(low >= BigInt("30000000", 16) && low < BigInt("80000000", 16))
+          !(addr >= BigInt("30000000", 16) && addr < BigInt("80000000", 16))
         }
         def misaligned(req: Request): Boolean = {
           val size = req.op match {
@@ -217,7 +216,7 @@ class MmuSpec extends AnyFlatSpec with ChiselScalatestTester {
           assert(cond, "MMU transaction timed out")
         }
         def mode(paging: Boolean): Unit =
-          dut.io.fromCsr.satp.poke((if (paging) BigInt("80000000", 16) else BigInt(0)).U)
+          dut.io.fromCsr.satp.poke((if (paging) BigInt("8000000000000000", 16) else BigInt(0)).U)
         def request(addr: BigInt, op: Int = 3, instruction: Boolean = false): Unit = {
           if (instruction) {
             dut.io.fromIcache.bits.vaddr.poke(addr.U)
@@ -237,7 +236,7 @@ class MmuSpec extends AnyFlatSpec with ChiselScalatestTester {
         def pteRead(addr: BigInt, pte: BigInt): Unit = {
           waitFor(flag(dut.io.ptwRead.req.valid))
           dut.io.ptwRead.req.bits.addr.expect(addr.U)
-          dut.io.ptwRead.req.bits.size.expect(2.U)
+          dut.io.ptwRead.req.bits.size.expect(3.U)
           dut.io.ptwRead.req.bits.uncache.expect(true.B)
           dut.io.ptwRead.req.ready.poke(false.B)
           dut.clock.step(3)
@@ -282,9 +281,10 @@ class MmuSpec extends AnyFlatSpec with ChiselScalatestTester {
         dut.io.fromMem.valid.poke(false.B)
         consume(BigInt("4000f000", 16), 8)
         request(0x1234)
-        // Root at PA 0, non-leaf points to PA 0x1000, leaf maps to PA 0x9000.
+        // Root -> PA 0x1000 -> PA 0x2000; leaf maps to PA 0x9000.
         pteRead(0, 0x401)
-        pteRead(0x1004, 0x24cf)
+        pteRead(0x1000, 0x801)
+        pteRead(0x2008, 0x24cf)
         consume(0x9234)
         // TLB hit, store permission, instruction permission, SUM and MXR.
         request(0x1234, 8)
@@ -321,7 +321,8 @@ class MmuSpec extends AnyFlatSpec with ChiselScalatestTester {
         flushTlb()
         request(0x1234)
         pteRead(0, 0x401)
-        pteRead(0x1004, 0x24d9) // Execute-only U page.
+        pteRead(0x1000, 0x801)
+        pteRead(0x2008, 0x24d9) // Execute-only U page.
         consume(0, fault = true) // S-mode load: SUM=0, MXR=0.
         dut.io.fromCsr.sum.poke(true.B)
         dut.io.fromCsr.mxr.poke(true.B)
@@ -406,7 +407,8 @@ class MmuSpec extends AnyFlatSpec with ChiselScalatestTester {
         // prevent the other port from entering the shared paged path.
         request(0x1234)
         pteRead(0, 0x401)
-        pteRead(0x1004, 0x24cf)
+        pteRead(0x1000, 0x801)
+        pteRead(0x2008, 0x24cf)
         consume(0x9234)
         dut.io.fromIcache.valid.poke(false.B)
         dut.io.toIcache.bits.paddr.expect("h4000f002".U)
@@ -459,7 +461,73 @@ class MmuSpec extends AnyFlatSpec with ChiselScalatestTester {
         request(BigInt("80000700", 16), instruction = true)
         dut.io.toIcache.bits.paddr.expect("h80000700".U)
         dut.clock.step()
-        println(s"MMU XLEN=$xlen: $cycles Bare scoreboard cycles, $accepted accepted data requests; paging/flush/mode checks passed")
+        // Sv39 high addresses, all leaf levels, A/D faults and M-mode bypass.
+        reset()
+        mode(true)
+        def leaf(pa: BigInt, flags: Int = 0xcf): BigInt = (pa >> 12 << 10) | flags
+        val va = BigInt("ffffffc123456234", 16)
+        val pa = BigInt("123459000", 16)
+        val rootIndex = ((va >> 30) & 511) * 8
+        val midIndex = ((va >> 21) & 511) * 8
+        val lowIndex = ((va >> 12) & 511) * 8
+        request(va)
+        pteRead(rootIndex, 0x401)
+        pteRead(0x1000 + midIndex, 0x801)
+        pteRead(0x2000 + lowIndex, leaf(pa))
+        consume(pa + (va & 4095))
+        request(va)
+        consume(pa + (va & 4095)) // Full-width TLB hit.
+
+        flushTlb()
+        request(va)
+        pteRead(rootIndex, leaf(BigInt("180000000", 16)))
+        consume(BigInt("180000000", 16) + (va & ((BigInt(1) << 30) - 1)))
+        flushTlb()
+        request(va)
+        pteRead(rootIndex, 0x401)
+        pteRead(0x1000 + midIndex, leaf(BigInt("120000000", 16)))
+        consume(BigInt("120000000", 16) + (va & ((BigInt(1) << 21) - 1)))
+
+        flushTlb()
+        request(va)
+        pteRead(rootIndex, leaf(0x9000)) // Misaligned 1 GiB leaf.
+        consume(0, fault = true)
+        for (bad <- Seq(leaf(0, 0x0f), leaf(0) | (BigInt(1) << 63),
+          BigInt(0x411))) {
+          flushTlb()
+          request(va)
+          pteRead(rootIndex, bad)
+          consume(0, fault = true)
+        }
+        flushTlb()
+        request(va)
+        pteRead(rootIndex, leaf(0, 0x4f)) // A set, D clear: read succeeds.
+        consume(va & ((BigInt(1) << 30) - 1))
+        request(va, 8) // TLB must retain D=0 and fault a later store.
+        consume(0, 8, fault = true)
+        flushTlb()
+        request(va, 8)
+        pteRead(rootIndex, leaf(0, 0x4f))
+        consume(0, 8, fault = true)
+        request(BigInt("0000008000001234", 16)) // Noncanonical VA.
+        consume(0, fault = true)
+        dut.io.ptwRead.req.valid.expect(false.B)
+
+        // satp does not translate M-mode fetch or effective M-mode data.
+        dut.io.fromCsr.priv.poke(3.U)
+        dut.io.fromCsr.dataPriv.poke(3.U)
+        request(va)
+        consume(va)
+        request(va, instruction = true)
+        waitFor(flag(dut.io.toIcache.valid))
+        dut.io.toIcache.bits.paddr.expect(va.U)
+        dut.clock.step()
+        dut.io.fromCsr.dataPriv.poke(1.U)
+        flushTlb()
+        request(va)
+        pteRead(rootIndex, leaf(0))
+        consume(va & ((BigInt(1) << 30) - 1))
+        println(s"MMU XLEN=$xlen: $cycles Bare scoreboard cycles, $accepted accepted data requests; Sv39/flush/mode checks passed")
       }
     }
   }

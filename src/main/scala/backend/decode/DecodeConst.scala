@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util._
 
 /* ============================================================================
- *  RV32IM + Zicsr + 特权指令的微操作编码
+ *  RV64IM + Zicsr + 特权指令的微操作编码
  * ==========================================================================*/
 
 /** 功能单元类型 */
@@ -183,10 +183,10 @@ object TlbOp {
 object MulOp {
   val width = 3
   val none   = 0.U(width.W)
-  val mul    = 1.U(width.W)  // MUL    低 32 位
-  val mulh   = 2.U(width.W)  // MULH   有符号 × 有符号 高 32 位
-  val mulhsu = 3.U(width.W)  // MULHSU 有符号 × 无符号 高 32 位
-  val mulhu  = 4.U(width.W)  // MULHU  无符号 × 无符号 高 32 位
+  val mul    = 1.U(width.W)  // MUL    低 XLEN 位
+  val mulh   = 2.U(width.W)  // MULH   有符号 × 有符号 高 XLEN 位
+  val mulhsu = 3.U(width.W)  // MULHSU 有符号 × 无符号 高 XLEN 位
+  val mulhu  = 4.U(width.W)  // MULHU  无符号 × 无符号 高 XLEN 位
   val mulw   = 5.U(width.W)  // MULW   低 32 位后符号扩展
 }
 

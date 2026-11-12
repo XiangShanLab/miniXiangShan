@@ -8,11 +8,11 @@ import minixiangshan.csr.CsrBundles._
 import minixiangshan.difftest.DifftestCSRState
 
 /* ============================================================================
- *  RISC-V 特权架构 CSR 文件（RV32/RV64 + M/S/U + Sv32）
+ *  RISC-V 特权架构 CSR 文件（RV64 + M/S/U + Sv39）
  *
  *  实现的寄存器：
  *    M: mstatus misa medeleg mideleg mie mtvec mcounteren mscratch mepc
- *       mcause mtval mip pmpcfg0-3 pmpaddr0-15 mcycle minstret
+ *       mcause mtval mip pmpcfg0/2 pmpaddr0-15 mcycle minstret
  *       mvendorid marchid mimpid mhartid mconfigptr
  *    S: sstatus sie stvec scounteren sscratch sepc scause stval sip satp
  *    U: cycle time instret（只读）
@@ -31,9 +31,7 @@ class CsrFile(implicit p: Parameters) extends NSModule with HasCsrParameters {
   val mstatus = RegInit(0.U.asTypeOf(new MstatusBundle))
 
   // ---------------- 机器级寄存器 ----------------
-  val misaValue = if (XLEN == 64) BigInt("8000000000141100", 16)
-                  else BigInt("40141100", 16)
-  val misa       = RegInit(misaValue.U(XLEN.W))  // RV{32,64}IM + S + U
+  val misa = BigInt("8000000000141100", 16).U(XLEN.W) // RV64IM + S + U
   val medeleg    = RegInit(0.U(XLEN.W))
   val mideleg    = RegInit(0.U(XLEN.W))
   val mie        = RegInit(0.U(XLEN.W))
@@ -55,7 +53,7 @@ class CsrFile(implicit p: Parameters) extends NSModule with HasCsrParameters {
   val satp       = RegInit(0.U(XLEN.W))
 
   // ---------------- PMP（占位，不做检查） ----------------
-  val pmpcfg  = RegInit(VecInit(Seq.fill(4)(0.U(XLEN.W))))
+  val pmpcfg  = RegInit(VecInit(Seq.fill(2)(0.U(XLEN.W))))
   val pmpaddr = RegInit(VecInit(Seq.fill(16)(0.U(XLEN.W))))
 
   // ---------------- 计数器 ----------------
@@ -116,33 +114,30 @@ class CsrFile(implicit p: Parameters) extends NSModule with HasCsrParameters {
   when(swWen(csrAddr.stvec))   { stvec := Cat(wdata(XLEN - 1, 2), wdata(1, 0)) }
   when(swWen(csrAddr.mscratch)){ mscratch := wdata }
   when(swWen(csrAddr.sscratch)){ sscratch := wdata }
-  when(swWen(csrAddr.mepc))    { mepc := wdata & "hFFFFFFFC".U(XLEN.W) }
-  when(swWen(csrAddr.sepc))    { sepc := wdata & "hFFFFFFFC".U(XLEN.W) }
+  when(swWen(csrAddr.mepc))    { mepc := Cat(wdata(63, 2), 0.U(2.W)) }
+  when(swWen(csrAddr.sepc))    { sepc := Cat(wdata(63, 2), 0.U(2.W)) }
   when(swWen(csrAddr.mcause))  { mcause := wdata }
   when(swWen(csrAddr.scause))  { scause := wdata }
   when(swWen(csrAddr.mtval))   { mtval := wdata }
   when(swWen(csrAddr.stval))   { stval := wdata }
   when(swWen(csrAddr.mip))     { mipSw := wdata & "h0000000A".U(XLEN.W) }
   when(swWen(csrAddr.sip))     { mipSw := wdata & "h0000000A".U(XLEN.W) }
-  when(swWen(csrAddr.satp))    { satp := wdata }
+  when(swWen(csrAddr.satp) && (wdata(63, 60) === 0.U || wdata(63, 60) === 8.U)) {
+    satp := Mux(wdata(63, 60) === 0.U, 0.U, wdata)
+  }
   when(swWen(csrAddr.mcounteren)) { mcounteren := wdata }
   when(swWen(csrAddr.scounteren)) { scounteren := wdata }
 
   // mcycle / minstret 读写
   when(swWen(csrAddr.mcycle)) {
-    mcycle := (if (XLEN < TimerLen) Cat(mcycle(TimerLen - 1, XLEN), wdata) else wdata)
+    mcycle := wdata
   }
   when(swWen(csrAddr.minstret)) {
-    minstret := (if (XLEN < TimerLen) Cat(minstret(TimerLen - 1, XLEN), wdata) else wdata)
+    minstret := wdata
   }
-  if (XLEN < TimerLen) {
-    when(swWen(csrAddr.mcycleh))  { mcycle := Cat(wdata, mcycle(XLEN - 1, 0)) }
-    when(swWen(csrAddr.minstreth)){ minstret := Cat(wdata, minstret(XLEN - 1, 0)) }
-  }
-
   // PMP
-  for (i <- 0 until 4) {
-    when(swWen(csrAddr.pmpcfg0 + i)) { pmpcfg(i) := wdata }
+  for (i <- 0 until 2) {
+    when(swWen(csrAddr.pmpcfg0 + 2 * i)) { pmpcfg(i) := wdata }
   }
   for (i <- 0 until 16) {
     when(swWen(csrAddr.pmpaddr0 + i)) { pmpaddr(i) := wdata }
@@ -191,7 +186,7 @@ class CsrFile(implicit p: Parameters) extends NSModule with HasCsrParameters {
   val trapDelegated = Mux(trap.isInterrupt,
     mideleg(causeAdj), medeleg(causeAdj)) && (trapPriv =/= PRIV_M_VAL.U)
 
-  // mcause/scause：bit31 = 中断标志，[30:0] = 编号
+  // mcause/scause：bit63 = 中断标志
   val causeFull = Cat(trap.isInterrupt, 0.U((XLEN - 7).W), causeAdj)
 
   when(trap.valid && trap.xret) {
@@ -245,7 +240,7 @@ class CsrFile(implicit p: Parameters) extends NSModule with HasCsrParameters {
     mstatus.spie.bits, 0.U(3.W),
     mstatus.sie.bits, 0.U(1.W)
   )
-  val sstatusView = if (XLEN == 64) Cat(0.U(32.W), sstatusLow) else sstatusLow
+  val sstatusView = Cat(0.U(30.W), 2.U(2.W), sstatusLow)
   val sieView = mie & mideleg
   val sipView = mipEff & mideleg
 
@@ -271,9 +266,6 @@ class CsrFile(implicit p: Parameters) extends NSModule with HasCsrParameters {
     csrAddr.mie        -> mie,
     csrAddr.mtvec      -> mtvec,
     csrAddr.mcounteren -> mcounteren,
-    csrAddr.mstatush   -> 0.U,
-    csrAddr.medelegh   -> 0.U,
-    csrAddr.midelegh   -> 0.U,
     csrAddr.mscratch   -> mscratch,
     csrAddr.mepc       -> mepc,
     csrAddr.mcause     -> mcause,
@@ -283,14 +275,9 @@ class CsrFile(implicit p: Parameters) extends NSModule with HasCsrParameters {
     csrAddr.mtval2     -> 0.U,
     csrAddr.mcycle     -> mcycle(XLEN - 1, 0),
     csrAddr.minstret   -> minstret(XLEN - 1, 0),
-    csrAddr.mcycleh    -> (if (XLEN < TimerLen) mcycle(TimerLen - 1, XLEN) else 0.U),
-    csrAddr.minstreth  -> (if (XLEN < TimerLen) minstret(TimerLen - 1, XLEN) else 0.U),
     csrAddr.cycle      -> mcycle(XLEN - 1, 0),
     csrAddr.time       -> mcycle(XLEN - 1, 0),
     csrAddr.instret    -> minstret(XLEN - 1, 0),
-    csrAddr.cycleh     -> (if (XLEN < TimerLen) mcycle(TimerLen - 1, XLEN) else 0.U),
-    csrAddr.timeh      -> (if (XLEN < TimerLen) mcycle(TimerLen - 1, XLEN) else 0.U),
-    csrAddr.instreth   -> (if (XLEN < TimerLen) minstret(TimerLen - 1, XLEN) else 0.U),
     csrAddr.mvendorid  -> 0.U,
     csrAddr.marchid    -> 0.U,
     csrAddr.mimpid     -> 0.U,
@@ -303,8 +290,8 @@ class CsrFile(implicit p: Parameters) extends NSModule with HasCsrParameters {
   }.reduce(_ | _)
 
   // PMP 寄存器（地址连续，单独做动态索引）
-  val pmpCfgRead = (0 until 4).map { i =>
-    Mux(rdAddr === (csrAddr.pmpcfg0 + i).U, pmpcfg(i), 0.U(XLEN.W))
+  val pmpCfgRead = (0 until 2).map { i =>
+    Mux(rdAddr === (csrAddr.pmpcfg0 + 2 * i).U, pmpcfg(i), 0.U(XLEN.W))
   }.reduce(_ | _)
   val pmpAddrRead = (0 until 16).map { i =>
     Mux(rdAddr === (csrAddr.pmpaddr0 + i).U, pmpaddr(i), 0.U(XLEN.W))
