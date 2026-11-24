@@ -13,21 +13,34 @@ import minixiangshan.config.NSBundle
 object ExcType extends Enumeration {
   type ExcType = Value
 
-  val INT      = Value(0)   // 中断（cause 高位，具体编号由 CSR 给出）
-  val IALIGN   = Value(1)   // 0  取指地址非对齐
-  val IACCESS  = Value(2)   // 1  取指访问错误
-  val ILLEGAL  = Value(3)   // 2  非法指令
-  val BREAK    = Value(4)   // 3  断点
-  val LALIGN   = Value(5)   // 4  Load 地址非对齐
-  val LACCESS  = Value(6)   // 5  Load 访问错误
-  val SALIGN   = Value(7)   // 6  Store/AMO 地址非对齐
-  val SACCESS  = Value(8)   // 7  Store/AMO 访问错误
-  val ECALL    = Value(9)   // 8/9/11 环境调用（具体编号在陷入时按当前特权级确定）
-  val IPAGE    = Value(10)  // 12 取指页错误
-  val LPAGE    = Value(11)  // 13 Load 页错误
-  val SPAGE    = Value(12)  // 15 Store/AMO 页错误
-  val XRET     = Value(13)  // 内部：mret/sret 的串行化标记（不产生 cause）
+  // 内部位号 = 优先级，数值越小优先级越高。
+  // 注释中的 cause 是 mcause/scause 编码。
+  
+  val INT      = Value(0)   // 中断：沿用当前项目的中断仲裁策略
+  
+  // 取指异常
+  val IPAGE    = Value(1)   // cause 12：取指页错误
+  val IACCESS  = Value(2)   // cause 1 ：取指访问错误
+  
+  // 译码、控制流及系统指令异常
+  val ILLEGAL  = Value(3)   // cause 2 ：非法指令
+  val IALIGN   = Value(4)   // cause 0 ：指令地址未对齐
+  val ECALL    = Value(5)   // cause 8/9/11：环境调用
+  val BREAK    = Value(6)   // cause 3 ：EBREAK 断点异常
+  
+  // 数据访存：选择未对齐优先的策略
+  val LALIGN   = Value(7)   // cause 4 ：Load 地址未对齐
+  val SALIGN   = Value(8)   // cause 6 ：Store/AMO 地址未对齐
+  
+  // 数据地址翻译及访问错误
+  val LPAGE    = Value(9)   // cause 13：Load 页错误
+  val SPAGE    = Value(10)  // cause 15：Store/AMO 页错误
+  val LACCESS  = Value(11)  // cause 5 ：Load 访问错误
+  val SACCESS  = Value(12)  // cause 7 ：Store/AMO 访问错误
+  
+  val XRET     = Value(13)  // 内部返回标记，不产生架构异常 cause
 
+  
   val excpnum: Int = values.size
 
   /** 位号 -> mcause/scause 的异常编号 */
