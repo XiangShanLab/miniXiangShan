@@ -8,8 +8,8 @@ import minixiangshan.config.NSBundle
 import minixiangshan.config.Parameters  // 导入Parameters类型
 class cache_BlackBox(implicit p: Parameters) extends BlackBox with HasBlackBoxResource {
     val io = IO(new Bundle {
-    // 对外AXI3 Master接口（对接转接桥）
-      val axi_master = new AXI3MasterIO
+    // 对外AXI4 Master接口（对接转接桥）
+      val axi_master = new AXI4MasterIO
       // 对内CPU接口（预留扩展）
       val cpu_if = new Bundle {
         val req_addr  = Input(UInt(64.W))
@@ -24,8 +24,8 @@ class cache_BlackBox(implicit p: Parameters) extends BlackBox with HasBlackBoxRe
 
 class uncache1_BlackBox(implicit p: Parameters) extends BlackBox with HasBlackBoxResource {
     val io = IO(new Bundle {
-    // 对外AXI3 Master接口（对接转接桥）
-    val axi_master = new AXI3MasterIO
+    // 对外AXI4 Master接口（对接转接桥）
+    val axi_master = new AXI4MasterIO
     // 对内CPU接口（预留扩展）
     val cpu_if = new Bundle {
       val req_addr  = Input(UInt(64.W))  // CPU请求地址
@@ -39,8 +39,8 @@ class uncache1_BlackBox(implicit p: Parameters) extends BlackBox with HasBlackBo
 }
 class uncache2_BlackBox(implicit p: Parameters) extends BlackBox with HasBlackBoxResource {
     val io = IO(new Bundle {
-    // 对外AXI3 Master接口（对接转接桥）
-    val axi_master = new AXI3MasterIO
+    // 对外AXI4 Master接口（对接转接桥）
+    val axi_master = new AXI4MasterIO
     // 对内CPU接口（预留扩展）
     val cpu_if = new Bundle {
       val req_addr  = Input(UInt(64.W))  // CPU请求地址

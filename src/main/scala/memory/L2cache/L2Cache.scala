@@ -57,7 +57,7 @@ class L2Cache(implicit p: Parameters) extends NSModule {
     val icache = Flipped(new L2NativeReadIO(1))
     val dcache = Flipped(new L2NativeMasterIO(1))
     val maintenance = Flipped(new L2MaintenanceMasterIO)
-    val axi = new AXI3MasterIO
+    val axi = new AXI4MasterIO
   })
 
   val array = Module(new L2CacheArray)

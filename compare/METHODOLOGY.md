@@ -76,8 +76,7 @@ ipc_ratio       = mini.ipc / nutshell.ipc
 - 两边已统一为 RV64 和同一份机器码，不再存在 RV32/RV64 指令流差异。
 - 两边 cache、预取器、MSHR 和流水线不同，这是被比较对象的一部分。两边都
   使用各自的乱序执行能力；没有把 NutShell 降到顺序配置。
-- NutShell 外部连接有 MEM/MMIO AXI mux；miniXiangShan 有 AXI3→AXI4
-  adapter。平台时序相同，但内部请求序列仍可能不同。
+- NutShell 外部连接有 MEM/MMIO AXI mux；miniXiangShan 原生 AXI4 直连平台。平台时序相同，但内部请求序列仍可能不同。
 - 16 MiB 单 outstanding 平台不是完整 SoC 互联或 DRAM 控制器模型。
 - 负载只覆盖 CoreMark；不能外推到 OS、中断、多线程或真实应用。
 - CoreMark 控制台输出会改变镜像代码布局，因此不要和旧版镜像或不同打印配置

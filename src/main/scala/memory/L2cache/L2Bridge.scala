@@ -8,7 +8,7 @@ import minixiangshan.config._
 class L2Bridge(implicit p: Parameters) extends NSModule {
   val io = IO(new Bundle {
     val client = Flipped(new L2BridgeClientIO)
-    val axi = new AXI3MasterIO
+    val axi = new AXI4MasterIO
   })
 
   val idle :: readAddr :: readData :: writeChannels :: writeResp :: Nil = Enum(5)
@@ -44,6 +44,8 @@ class L2Bridge(implicit p: Parameters) extends NSModule {
   // the L1/MSHR rather than relying on narrow AXI lane placement.
   io.axi.ar.data.arsize := 3.U
   io.axi.ar.data.arburst := Mux(readCmd.isLine, 1.U, 0.U)
+  io.axi.ar.data.arqos := 0.U
+  io.axi.ar.data.aruser := 0.U
   io.axi.ar.data.arlock := 0.U
   io.axi.ar.data.arcache := 0.U
   io.axi.ar.data.arprot := 0.U
@@ -59,12 +61,14 @@ class L2Bridge(implicit p: Parameters) extends NSModule {
   io.axi.aw.data.awlen := Mux(writeCmd.isLine, (l2BurstBeats - 1).U, 0.U)
   io.axi.aw.data.awsize := 3.U
   io.axi.aw.data.awburst := Mux(writeCmd.isLine, 1.U, 0.U)
+  io.axi.aw.data.awqos := 0.U
+  io.axi.aw.data.awuser := 0.U
   io.axi.aw.data.awlock := 0.U
   io.axi.aw.data.awcache := 0.U
   io.axi.aw.data.awprot := 0.U
   io.axi.aw.data.awvalid := state === writeChannels && !awDone
 
-  io.axi.w.data.wid := 0.U
+  io.axi.w.data.wuser := 0.U
   io.axi.w.data.wdata := writeWords(writeBeat)
   io.axi.w.data.wstrb := Mux(writeCmd.isLine, Fill(l2BeatBytes, 1.U(1.W)), writeCmd.strb)
   io.axi.w.data.wlast := !writeCmd.isLine || writeBeat === (l2BurstBeats - 1).U

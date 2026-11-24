@@ -3,10 +3,10 @@ package minixiangshan.axi
 import chisel3._
 import minixiangshan.config.{NSBundle, Parameters}
 
-/** AXI4 full master-side bundle, 32-bit address and 64-bit data. */
+/** AXI4 full master-side bundle, XLEN-bit address and data. */
 class AXI4ARData(implicit p: Parameters) extends NSBundle {
   val arid    = UInt(4.W)
-  val araddr  = UInt(32.W)
+  val araddr  = UInt(XLEN.W)
   val arlen   = UInt(8.W)
   val arsize  = UInt(3.W)
   val arburst = UInt(2.W)
@@ -20,7 +20,7 @@ class AXI4ARData(implicit p: Parameters) extends NSBundle {
 
 class AXI4RData(implicit p: Parameters) extends NSBundle {
   val rid    = UInt(4.W)
-  val rdata  = UInt(64.W)
+  val rdata  = UInt(XLEN.W)
   val rresp  = UInt(2.W)
   val rlast  = Bool()
   val ruser  = UInt(1.W)
@@ -29,7 +29,7 @@ class AXI4RData(implicit p: Parameters) extends NSBundle {
 
 class AXI4AWData(implicit p: Parameters) extends NSBundle {
   val awid    = UInt(4.W)
-  val awaddr  = UInt(32.W)
+  val awaddr  = UInt(XLEN.W)
   val awlen   = UInt(8.W)
   val awsize  = UInt(3.W)
   val awburst = UInt(2.W)
@@ -42,8 +42,8 @@ class AXI4AWData(implicit p: Parameters) extends NSBundle {
 }
 
 class AXI4WData(implicit p: Parameters) extends NSBundle {
-  val wdata  = UInt(64.W)
-  val wstrb  = UInt(8.W)
+  val wdata  = UInt(XLEN.W)
+  val wstrb  = UInt((XLEN / 8).W)
   val wlast  = Bool()
   val wuser  = UInt(1.W)
   val wvalid = Bool()

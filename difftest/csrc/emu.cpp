@@ -238,11 +238,13 @@ public:
     t.rdata = t.rvalid ? read_word(rd.address()) : 0;
     t.rlast = rd.active && rd.beat == rd.len;
     t.rresp = 0;
+    t.ruser = 0;
     t.awready = !wr.active && !response;
     t.wready = wr.active && !response;
     t.bvalid = response;
     t.bid = response_id;
     t.bresp = 0;
+    t.buser = 0;
   }
   void accept(const Vcore_top& t) {
     if (rd.active && rd.wait) --rd.wait;
@@ -255,8 +257,8 @@ public:
     if (t.awvalid && t.awready)
       wr = burst(t.awaddr, t.awid, t.awlen, t.awsize, t.awburst, 1);
     if (t.wvalid && t.wready) {
-      if (t.wid != wr.id || bool(t.wlast) != (wr.beat == wr.len))
-        throw std::runtime_error("invalid AXI write ID/last");
+      if (bool(t.wlast) != (wr.beat == wr.len))
+        throw std::runtime_error("invalid AXI4 write last");
       write_word(wr.address(), t.wdata, t.wstrb);
       if (t.wlast) { wr.active = false; response = true; response_id = wr.id; }
       else ++wr.beat;

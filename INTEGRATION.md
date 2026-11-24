@@ -48,3 +48,18 @@ ln -s ../../miniXiangShan miniXiangShan
   `make run APP=coremark` 能获取 NutShell 并运行对比。
 
 旧目录替换涉及父仓库删除操作，应由父仓库维护者确认后执行。
+
+## 核对外总线
+
+`core_top` 原生输出一组 AXI4 Full master：64 位地址、64 位数据、
+4 位 ID、8 位 LEN、1 位 LOCK，无 WID。提供 4 位 ARQOS/AWQOS 和
+1 位各通道 USER；输出 QoS/USER/LOCK 当前为零，响应 USER 不参与处理。
+未使用可选 REGION 信号。
+
+I-Cache 与 PTW 共享 L2 读入口，D-Cache 使用独立 native 入口，最终均由
+L2Bridge 驱动同一组 AXI4。外部全局单 outstanding，读写串行，ID 固定为零。
+64 字节 cache line 使用 8 拍 INCR burst；uncache 使用单拍 8 字节传输，
+写字节由 WSTRB 选择。AW/W 独立握手，写完成等待 B 响应。
+
+比较平台 `MiniPerfTop` 直接连接 AXI4，不再使用 AXI3 转换层。该平台地址图
+为 32 位，连接时截取地址低 32 位，并断言高 32 位为零。

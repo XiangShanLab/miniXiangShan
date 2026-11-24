@@ -29,49 +29,55 @@ class core_top(implicit p: Parameters) extends NSRawModule {
   // ========== 中断输入 ==========
   val intrpt = IO(Input(UInt(8.W)))
  
-  // ========== AXI3 AR通道 ==========
+  // ========== AXI4 AR通道 ==========
   val arid    = IO(Output(UInt(4.W)))
   val araddr  = IO(Output(UInt(XLEN.W)))
   val arlen   = IO(Output(UInt(8.W)))
   val arsize  = IO(Output(UInt(3.W)))
   val arburst = IO(Output(UInt(2.W)))
-  val arlock  = IO(Output(UInt(2.W)))
+  val arlock  = IO(Output(UInt(1.W)))
   val arcache = IO(Output(UInt(4.W)))
   val arprot  = IO(Output(UInt(3.W)))
+  val arqos   = IO(Output(UInt(4.W)))
+  val aruser  = IO(Output(UInt(1.W)))
   val arvalid = IO(Output(Bool()))
   val arready = IO(Input(Bool()))
  
-  // ========== AXI3 R通道 ==========
+  // ========== AXI4 R通道 ==========
   val rid    = IO(Input(UInt(4.W)))
   val rdata  = IO(Input(UInt(XLEN.W)))
   val rresp  = IO(Input(UInt(2.W)))
+  val ruser  = IO(Input(UInt(1.W)))
   val rlast  = IO(Input(Bool()))
   val rvalid = IO(Input(Bool()))
   val rready = IO(Output(Bool()))
  
-  // ========== AXI3 AW通道 ==========
+  // ========== AXI4 AW通道 ==========
   val awid    = IO(Output(UInt(4.W)))
   val awaddr  = IO(Output(UInt(XLEN.W)))
   val awlen   = IO(Output(UInt(8.W)))
   val awsize  = IO(Output(UInt(3.W)))
   val awburst = IO(Output(UInt(2.W)))
-  val awlock  = IO(Output(UInt(2.W)))
+  val awlock  = IO(Output(UInt(1.W)))
   val awcache = IO(Output(UInt(4.W)))
   val awprot  = IO(Output(UInt(3.W)))
+  val awqos   = IO(Output(UInt(4.W)))
+  val awuser  = IO(Output(UInt(1.W)))
   val awvalid = IO(Output(Bool()))
   val awready = IO(Input(Bool()))
  
-  // ========== AXI3 W通道 ==========
-  val wid    = IO(Output(UInt(4.W)))
+  // ========== AXI4 W通道 ==========
   val wdata  = IO(Output(UInt(XLEN.W)))
   val wstrb  = IO(Output(UInt((XLEN / 8).W)))
+  val wuser  = IO(Output(UInt(1.W)))
   val wlast  = IO(Output(Bool()))
   val wvalid = IO(Output(Bool()))
   val wready = IO(Input(Bool()))
  
-  // ========== AXI3 B通道 ==========
+  // ========== AXI4 B通道 ==========
   val bid    = IO(Input(UInt(4.W)))
   val bresp  = IO(Input(UInt(2.W)))
+  val buser  = IO(Input(UInt(1.W)))
   val bvalid = IO(Input(Bool()))
   val bready = IO(Output(Bool()))
  
@@ -266,7 +272,7 @@ class core_top(implicit p: Parameters) extends NSRawModule {
   l2cache.io.maintenance.req.bits.addr := 0.U
   l2cache.io.maintenance.done.ready := true.B
  
-  // L2 → 顶层AXI3接口
+  // L2 → 顶层AXI4接口
   // AR通道
   arid    := l2cache.io.axi.ar.data.arid
   araddr  := l2cache.io.axi.ar.data.araddr
@@ -276,11 +282,14 @@ class core_top(implicit p: Parameters) extends NSRawModule {
   arlock  := l2cache.io.axi.ar.data.arlock
   arcache := l2cache.io.axi.ar.data.arcache
   arprot  := l2cache.io.axi.ar.data.arprot
+  arqos   := l2cache.io.axi.ar.data.arqos
+  aruser  := l2cache.io.axi.ar.data.aruser
   arvalid := l2cache.io.axi.ar.data.arvalid
   l2cache.io.axi.ar.arready := arready
  
   // R通道
-  val r_data = Wire(new AXI3RData)
+  val r_data = Wire(new AXI4RData)
+  r_data.ruser := ruser
   r_data.rid    := rid
   r_data.rdata  := rdata
   r_data.rresp  := rresp
@@ -298,11 +307,13 @@ class core_top(implicit p: Parameters) extends NSRawModule {
   awlock  := l2cache.io.axi.aw.data.awlock
   awcache := l2cache.io.axi.aw.data.awcache
   awprot  := l2cache.io.axi.aw.data.awprot
+  awqos   := l2cache.io.axi.aw.data.awqos
+  awuser  := l2cache.io.axi.aw.data.awuser
   awvalid := l2cache.io.axi.aw.data.awvalid
   l2cache.io.axi.aw.awready := awready
  
   // W通道
-  wid     := l2cache.io.axi.w.data.wid
+  wuser   := l2cache.io.axi.w.data.wuser
   wdata   := l2cache.io.axi.w.data.wdata
   wstrb   := l2cache.io.axi.w.data.wstrb
   wlast   := l2cache.io.axi.w.data.wlast
@@ -310,7 +321,8 @@ class core_top(implicit p: Parameters) extends NSRawModule {
   l2cache.io.axi.w.wready := wready
  
   // B通道
-  val b_data = Wire(new AXI3BData)
+  val b_data = Wire(new AXI4BData)
+  b_data.buser := buser
   b_data.bid    := bid
   b_data.bresp  := bresp
   b_data.bvalid := bvalid
@@ -376,7 +388,6 @@ class core_top(implicit p: Parameters) extends NSRawModule {
   dontTouch(rdata)
   dontTouch(awid)
   dontTouch(awaddr)
-  dontTouch(wid)
   dontTouch(wdata)
   dontTouch(bid)
   dontTouch(bresp)
