@@ -123,7 +123,7 @@ class ExceptionBundle extends Bundle {
     val useMem  = exc === LALIGN.id.U || exc === LACCESS.id.U ||
                   exc === SALIGN.id.U || exc === SACCESS.id.U ||
                   exc === LPAGE.id.U  || exc === SPAGE.id.U
-    Mux(useInst, inst, Mux(useMem, memVaddr, pc))
+    Mux(needsTvalWrite, Mux(useInst, inst, Mux(useMem, memVaddr, pc)), 0.U)
   }
 }
 

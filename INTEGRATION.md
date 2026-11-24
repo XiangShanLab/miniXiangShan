@@ -43,6 +43,8 @@ ln -s ../../miniXiangShan miniXiangShan
 
 - XiangShanLab 中不存在第二份可编辑的 miniXiangShan 源码。
 - 本仓库的构建和性能脚本不引用 `XiangShanLab` 或 `xs-env`。
-- `make perf` 能从本仓库重新获取 NutShell/CoreMark 并独立运行。
+- 根目录 `make emu` 能独立构建仿真器和 NEMU。
+- `apps/coremark/` 的 `make` 能独立构建镜像，`compare/` 中的
+  `make run APP=coremark` 能获取 NutShell 并运行对比。
 
 旧目录替换涉及父仓库删除操作，应由父仓库维护者确认后执行。

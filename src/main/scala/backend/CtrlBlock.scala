@@ -227,6 +227,8 @@ class CtrlBlock(implicit p: Parameters) extends NSModule {
       diffCommit.excpFlush  := robCommit.excp.hasException && !isPureXret
       diffCommit.xretFlush  := isPureXret
       diffCommit.cause      := DifftestUtils.excpCause(robCommit.excp)
+      diffCommit.isInterrupt := robCommit.excp.isInterrupt
+      diffCommit.interruptCause := RegNext(io.intrCode, 0.U)
       diffCommit.trap       := DifftestUtils.isTrap(robCommit.inst)
       diffCommit.trapCode   := 0.U
       diffCommit.tlbFillIdx := robCommit.tlbFillIdx

@@ -200,8 +200,9 @@ class DifftestInCore(implicit p: Parameters) extends NSModule {
   difftestExcpEvent.io.clock := clock
   difftestExcpEvent.io.coreid := 0.U
   difftestExcpEvent.io.excp_valid := excpValids.asUInt.orR && excpCommit.excpFlush
-  difftestExcpEvent.io.intr := excpCommit.cause === 0.U && excpCommit.excpFlush
-  difftestExcpEvent.io.cause := excpCommit.cause
+  difftestExcpEvent.io.intr := excpCommit.isInterrupt && excpCommit.excpFlush
+  difftestExcpEvent.io.cause := Mux(excpCommit.isInterrupt,
+    excpCommit.interruptCause, excpCommit.cause)
   difftestExcpEvent.io.exceptionPC := zeroExt64(excpCommit.pc)
   difftestExcpEvent.io.exceptionInst := excpCommit.instr
 

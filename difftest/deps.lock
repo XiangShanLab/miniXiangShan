@@ -1,0 +1,3 @@
+# Public upstream only. No local checkout or environment-specific source paths.
+NEMU_URL=https://github.com/OpenXiangShan/NEMU.git
+NEMU_COMMIT=a48a11f208ff81ad765591d83271d1b339fb3861

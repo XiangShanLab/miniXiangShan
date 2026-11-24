@@ -1,0 +1,8 @@
+{
+  "image": "build/hello.bin",
+  "elf": "build/hello.elf",
+  "hex": "build/hello.hex",
+  "expected_checksum": 5050,
+  "trace_start": "benchmark",
+  "trace_stop": "mini_perf_end"
+}

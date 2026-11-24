@@ -10,8 +10,8 @@
 /.sbt-run/
 /.ivy2/
 target/
-/project
-/project/metals.sbt
+# Generated sbt version file and project caches
+/project/
 *.class
 
 # Generated RTL and build products
@@ -20,11 +20,13 @@ target/
 /build/
 /obj_dir/
 /test_run_dir/
-/perf/.build/
+/compare/build/
+/apps/*/build/
+/.build.lock
 
 # Reproducible experiment output; keep the directory placeholder
-/perf/results/*
-!/perf/results/.gitkeep
+/compare/results/*
+!/compare/results/.gitkeep
 
 # Python tooling caches
 __pycache__/

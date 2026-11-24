@@ -133,19 +133,22 @@ object CoreGen extends App {
     buildCommentBlock("Git changes     :", summary, fallback = "workspace status unavailable")
   }
 
-  // 读取第一个参数，默认 simu
-  val mode = args.headOption.getOrElse("simu").toLowerCase match {
+  // Public build: emu. The comparison directory selects its own platform top.
+  val mode = args.headOption.getOrElse("emu").toLowerCase match {
     case "fpga" => "fpga"
-    case "perf" => "perf"
-    case _      => "simu"
+    case "compare" => "compare"
+    case "emu" => "emu"
+    case "simu" => "simu"
+    case other => throw new IllegalArgumentException(s"Unknown generation mode: $other")
   }
 
   val rtlRoot = sys.env.getOrElse("RTL_DIR", "build/rtl")
-  val targetDirPath = new File(rtlRoot, if (mode == "perf") "perf/mini" else mode).getPath
+  val targetDirPath = new File(rtlRoot, if (mode == "compare") "compare/mini" else mode).getPath
 
-  val enableDifftest = mode == "simu"  // simu 开启 difftest，fpga 关闭
+  val enableDifftest = mode == "simu" || mode == "emu"
   val useBehavioralMemories = mode != "fpga"
-  val resetPC = if (mode == "perf") BigInt("80000000", 16)
+  val platformTop = mode == "compare"
+  val resetPC = if (platformTop || mode == "emu") BigInt("80000000", 16)
     else CoreConfigKeys.ResetPC.default
 
   val targetDir = cleanAndMkdir(targetDirPath)
@@ -153,12 +156,16 @@ object CoreGen extends App {
 
   implicit val config: Parameters = new Parameters(Map(
     DebugConfigKeys.EnableDifftest -> enableDifftest,
+    DebugConfigKeys.DifftestUseDPI -> (mode == "simu"),
     DebugConfigKeys.UseBehavioralMemories -> useBehavioralMemories,
     CoreConfigKeys.ResetPC -> resetPC,
     CoreConfigKeys.XLEN -> 64
   ))
+  require(L2PrefetchMode.supported.contains(config(CoreConfigKeys.L2Prefetch)))
+  require(Seq(0, 1).contains(config(CoreConfigKeys.useNewBPU)))
+  require(Seq(0, 1, 2).contains(config(CoreConfigKeys.LoadQVersion)))
 
-  def top: NSRawModule = if (mode == "perf") new perf.MiniPerfTop else new core_top
+  def top: NSRawModule = if (platformTop) new perf.MiniPerfTop else new core_top
   emitVerilog(
     top,
     Array(

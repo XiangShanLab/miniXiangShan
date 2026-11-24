@@ -1,0 +1,9 @@
+{
+  "image": "build/coremark.bin",
+  "elf": "build/coremark.elf",
+  "hex": "build/coremark.hex",
+  "reference": "build/coremark-host",
+  "validator": "validate.py",
+  "trace_start": "iterate",
+  "trace_stop": "stop_time"
+}

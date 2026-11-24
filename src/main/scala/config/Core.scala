@@ -11,6 +11,7 @@ object MmuconfigKeys {
 
 object DebugConfigKeys {
   val EnableDifftest = new Field[Boolean](true)
+  val DifftestUseDPI = new Field[Boolean](true)
   // Keep simulation and FPGA memory implementations selectable independently.
   // Performance builds disable difftest but still need synthesizable,
   // Verilator-friendly synchronous memories.

@@ -7,6 +7,7 @@ import minixiangshan.config.NSModule
 import minixiangshan.config.NSRawModule
 import minixiangshan.config.NSBundle
 import minixiangshan.config.Parameters
+import minixiangshan.config.DebugConfigKeys
  
 import minixiangshan.axi._
 import minixiangshan.frontend._
@@ -19,6 +20,8 @@ import minixiangshan.mem.L2cache.L2Cache
 import minixiangshan.mem.L2cache.L2ReadArbiter
  
 class core_top(implicit p: Parameters) extends NSRawModule {
+  val difftestState = if (EnableDifftest && !p(DebugConfigKeys.DifftestUseDPI))
+    Some(IO(Output(new CoreDifftestBundle))) else None
   // ========== 时钟与复位 ==========
   val aclk    = IO(Input(Clock()))
   val aresetn = IO(Input(Bool()))
@@ -334,13 +337,22 @@ class core_top(implicit p: Parameters) extends NSRawModule {
   // Difftest 协同仿真
   // ================================================================
   if (EnableDifftest) {
-    val difftest = Module(new DifftestInCore)
     val difftestInfo = Wire(new CoreDifftestBundle)
 
     difftestInfo.commit := backend.difftest.get.commit
     difftestInfo.regs   := backend.difftest.get.regs
     difftestInfo.csr    := csr.difftest.get
-    difftest.io := difftestInfo
+    if (p(DebugConfigKeys.DifftestUseDPI)) {
+      val difftest = Module(new DifftestInCore)
+      difftest.io := difftestInfo
+    } else {
+      // ROB -> CtrlBlock takes one edge; architectural RAT/CSR updates take two.
+      // Delay events one more edge so the exported state is post-retirement.
+      difftestState.get.commit := RegNext(difftestInfo.commit,
+        0.U.asTypeOf(difftestInfo.commit))
+      difftestState.get.regs := difftestInfo.regs
+      difftestState.get.csr := difftestInfo.csr
+    }
 
     val legacyCommit = backend.difftest.get.commit(0)
     ws_valid           := legacyCommit.valid

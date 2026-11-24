@@ -77,6 +77,8 @@ class Axi4PerfPlatform extends BlackBox {
  * single-outstanding L2Bridge remain the same RTL as the normal build.
  */
 class MiniPerfTop(implicit p: Parameters) extends NSRawModule {
+  val difftest = if (EnableDifftest && !p(DebugConfigKeys.DifftestUseDPI))
+    Some(IO(Output(new minixiangshan.difftest.CoreDifftestBundle))) else None
   val aclk    = IO(Input(Clock()))
   val aresetn = IO(Input(Bool()))
 
@@ -100,6 +102,7 @@ class MiniPerfTop(implicit p: Parameters) extends NSRawModule {
   val trace_inst_2 = IO(Output(UInt(32.W)))
 
   val core = Module(new core_top)
+  difftest.foreach(_ := core.difftestState.get)
   core.aclk    := aclk
   core.aresetn := aresetn
   core.intrpt  := 0.U

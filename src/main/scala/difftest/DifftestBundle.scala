@@ -29,6 +29,8 @@ class DifftestCommitInfo(implicit p: Parameters) extends NSBundle {
   val excpFlush  = Bool()          // 触发异常
   val xretFlush  = Bool()          // mret / sret
   val cause      = UInt(6.W)       // mcause/scause 低位
+  val isInterrupt = Bool()
+  val interruptCause = UInt(IntrCode.width.W)
   val trap       = Bool()          // 测试结束（ebreak 约定）
   val trapCode   = UInt(8.W)
   val tlbFillIdx = UInt(5.W)
