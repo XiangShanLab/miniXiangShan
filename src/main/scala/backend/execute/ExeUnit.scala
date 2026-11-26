@@ -17,11 +17,11 @@ class ExeResult(implicit p: Parameters) extends NSBundle {
   val uop           = new DispatchedInst
   val data          = UInt(XLEN.W)
   val redirect      = Valid(new RedirectInfo)
+  val vaddr         = UInt(XLEN.W) // 访存虚拟地址或异常相关地址
  
   val memValid      = Bool()
   val memRead       = Bool()
   val memWrite      = Bool()
-  val memVaddr      = UInt(XLEN.W)
   val memPaddr      = UInt(XLEN.W)
   val memStoreData  = UInt(XLEN.W)
   val storeValid    = Bool()
@@ -194,7 +194,13 @@ class ExeUnit(val params: ExeUnitParams)(implicit p: Parameters) extends NSModul
   )
  
   val fastOutData = Mux1H(subValids, subData)
-  val fastOutUop  = stgData.uop
+  val bruFault = if (params.hasBru) bru.io.faultVaddr.valid else false.B
+  val bruFaultVaddr = if (params.hasBru) bru.io.faultVaddr.bits else 0.U(XLEN.W)
+  val fastOutUop = WireDefault(stgData.uop)
+  fastOutUop.excp.excpVec := stgData.uop.excp.mergeMany(
+    base = stgData.uop.excp.excpVec,
+    bruFault -> ExcType.IALIGN
+  )
  
   // ── 快速通道 mem 信号 ──
   val fastIsLsu = if (params.hasMemAddr || params.hasStd)
@@ -204,9 +210,14 @@ class ExeUnit(val params: ExeUnitParams)(implicit p: Parameters) extends NSModul
   val fastMemValid     = fastIsLsu
   val fastMemRead      = fastIsLsu && stgData.uop.ctrl.memRead
   val fastMemWrite     = fastIsLsu && stgData.uop.ctrl.memWrite
-  val fastMemVaddr     = memAddr    
   val fastMemPaddr     = 0.U  
   val fastMemStoreData = stgData.rs2Data
+
+  // 跳转 IALIGN 使用实际目标，访存使用有效地址，其他情况保留原指令 PC。
+  val fastVaddr = MuxCase(stgData.uop.pc, Seq(
+    bruFault -> bruFaultVaddr,
+    fastIsLsu -> memAddr
+  ))
  
   // ── 快速通道 CSR 写信号 ──
   val fastIsCsr    = if (params.hasCsr) stgValid && fuType === FuType.csr else false.B
@@ -283,6 +294,9 @@ class ExeUnit(val params: ExeUnitParams)(implicit p: Parameters) extends NSModul
  
   io.outResult.bits.uop  := Mux1H(outUopSelects)
   io.outResult.bits.data := Mux1H(outDataSelects)
+  io.outResult.bits.vaddr := Mux1H(Seq(fastWins -> fastVaddr) ++
+    (if (params.hasMul) Seq(mulWins -> mul.io.out.bits.vaddr) else Seq()) ++
+    (if (params.hasDiv) Seq(divWins -> div.io.out.bits.vaddr) else Seq()))
  
   io.outResult.bits.redirect.valid := false.B
   io.outResult.bits.redirect.bits  := DontCare
@@ -297,9 +311,6 @@ class ExeUnit(val params: ExeUnitParams)(implicit p: Parameters) extends NSModul
   io.outResult.bits.memWrite      := Mux1H(Seq(fastWins -> fastMemWrite) ++
     (if (params.hasMul) Seq(mulWins -> false.B) else Seq()) ++
     (if (params.hasDiv) Seq(divWins -> false.B) else Seq()))
-  io.outResult.bits.memVaddr      := Mux1H(Seq(fastWins -> fastMemVaddr) ++
-    (if (params.hasMul) Seq(mulWins -> 0.U) else Seq()) ++
-    (if (params.hasDiv) Seq(divWins -> 0.U) else Seq()))
   io.outResult.bits.memPaddr      := Mux1H(Seq(fastWins -> fastMemPaddr) ++
     (if (params.hasMul) Seq(mulWins -> 0.U) else Seq()) ++
     (if (params.hasDiv) Seq(divWins -> 0.U) else Seq()))

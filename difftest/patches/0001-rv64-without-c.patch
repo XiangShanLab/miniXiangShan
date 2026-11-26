@@ -1,0 +1,295 @@
+diff --git a/Kconfig b/Kconfig
+index 0327a903..311cab0e 100644
+--- a/Kconfig
++++ b/Kconfig
+@@ -26,6 +26,7 @@ config ILEN_MIN
+   default 1 if ISA_x86
+   default 4 if ISA_mips32
+   default 4 if ISA_riscv32
++  default 4 if ISA_riscv64 && RV_NO_C
+   default 2 if ISA_riscv64
+   default 1
+ 
+diff --git a/src/isa/riscv64/Kconfig b/src/isa/riscv64/Kconfig
+index dfbacda7..5363b2ec 100644
+--- a/src/isa/riscv64/Kconfig
++++ b/src/isa/riscv64/Kconfig
+@@ -1,5 +1,16 @@
+ menu "ISA-dependent Options for riscv64"
+ 
++config RV_NO_C
++  bool "Disable compressed instructions (IALIGN=32)"
++  depends on !CUSTOM_TENSOR && !RV_ZCB && !RV_ZCMOP
++  select MISA_UNCHANGEABLE
++  default n
++  help
++    Use fixed 32-bit instruction fetch and four-byte instruction alignment.
++    Compressed encodings raise illegal-instruction exceptions. Taken branches
++    and jumps with misaligned targets fault before writing the link register.
++    This is a build-time mode; guest software cannot enable C through misa.
++
+ config HAS_CLINT
+   bool
+   default y
+diff --git a/src/isa/riscv64/init.c b/src/isa/riscv64/init.c
+index d0fa3460..d936e096 100644
+--- a/src/isa/riscv64/init.c
++++ b/src/isa/riscv64/init.c
+@@ -138,6 +138,9 @@ void init_isa() {
+ 
+ #define ext(e) (1 << ((e) - 'a'))
+   misa->extensions = ext('i') | ext('m') | ext('a') | ext('c') | ext('s') | ext('u');
++#ifdef CONFIG_RV_NO_C
++  misa->extensions &= ~ext('c');
++#endif
+ #ifndef CONFIG_FPU_NONE
+   misa->extensions |= ext('d') | ext('f');
+ #endif // CONFIG_FPU_NONE
+diff --git a/src/isa/riscv64/instr/decode.c b/src/isa/riscv64/instr/decode.c
+index 11290c89..058679d7 100644
+--- a/src/isa/riscv64/instr/decode.c
++++ b/src/isa/riscv64/instr/decode.c
+@@ -140,6 +140,13 @@ int isa_fetch_decode(Decode *s) {
+   }
+ #endif // CONFIG_TDATA1_MCONTROL6
+ 
++#ifdef CONFIG_RV_NO_C
++  s->isa.instr.val = instr_fetch(&s->snpc, 4);
++  // table_main ignores bits [1:0], so reject compressed encodings here.
++  if (s->isa.instr.r.opcode1_0 == 0x3) {
++    idx = table_main(s);
++  }
++#else
+   s->isa.instr.val = instr_fetch(&s->snpc, 2);
+   if (s->isa.instr.r.opcode1_0 != 0x3) {
+     // this is an RVC instruction
+@@ -164,6 +171,7 @@ int isa_fetch_decode(Decode *s) {
+     s->isa.instr.val |= (hi << 16);
+     idx = table_main(s);
+   }
++#endif // CONFIG_RV_NO_C
+ 
+   s->type = INSTR_TYPE_N;
+   switch (idx) {
+diff --git a/src/isa/riscv64/instr/rvi/control.h b/src/isa/riscv64/instr/rvi/control.h
+index 40ba4b94..b25bd101 100644
+--- a/src/isa/riscv64/instr/rvi/control.h
++++ b/src/isa/riscv64/instr/rvi/control.h
+@@ -16,6 +16,7 @@
+ #include <generated/autoconf.h>
+ 
+ def_EHelper(jal) {
++  riscv64_check_cfi_target(s, id_src1->imm);
+   rtl_li(s, ddest, id_src2->imm);
+   IFDEF(CONFIG_BR_LOG, br_log_commit(s->pc, id_src1->imm, 1, BR_JUMP));
+   rtl_j(s, id_src1->imm);
+@@ -27,6 +28,7 @@ def_EHelper(jalr) {
+   rtl_addi(s, s0, dsrc1, id_src2->imm);
+   // then setting the least-significant bit of the result to zero.
+   rtl_andi(s, s0, s0, ~1UL);
++  riscv64_check_cfi_target(s, *s0);
+ //  IFDEF(CONFIG_ENGINE_INTERPRETER, rtl_andi(s, s0, s0, ~0x1lu));
+ #ifdef CONFIG_GUIDED_EXEC
+   if(cpu.guided_exec && cpu.execution_guide.force_set_jump_target) {
+@@ -42,25 +44,31 @@ def_EHelper(jalr) {
+ }
+ 
+ def_EHelper(beq) {
++  riscv64_check_branch_target(s, RELOP_EQ, dsrc1, dsrc2, id_dest->imm);
+   rtl_jrelop(s, RELOP_EQ, dsrc1, dsrc2, id_dest->imm);
+ }
+ 
+ def_EHelper(bne) {
++  riscv64_check_branch_target(s, RELOP_NE, dsrc1, dsrc2, id_dest->imm);
+   rtl_jrelop(s, RELOP_NE, dsrc1, dsrc2, id_dest->imm);
+ }
+ 
+ def_EHelper(blt) {
++  riscv64_check_branch_target(s, RELOP_LT, dsrc1, dsrc2, id_dest->imm);
+   rtl_jrelop(s, RELOP_LT, dsrc1, dsrc2, id_dest->imm);
+ }
+ 
+ def_EHelper(bge) {
++  riscv64_check_branch_target(s, RELOP_GE, dsrc1, dsrc2, id_dest->imm);
+   rtl_jrelop(s, RELOP_GE, dsrc1, dsrc2, id_dest->imm);
+ }
+ 
+ def_EHelper(bltu) {
++  riscv64_check_branch_target(s, RELOP_LTU, dsrc1, dsrc2, id_dest->imm);
+   rtl_jrelop(s, RELOP_LTU, dsrc1, dsrc2, id_dest->imm);
+ }
+ 
+ def_EHelper(bgeu) {
++  riscv64_check_branch_target(s, RELOP_GEU, dsrc1, dsrc2, id_dest->imm);
+   rtl_jrelop(s, RELOP_GEU, dsrc1, dsrc2, id_dest->imm);
+ }
+diff --git a/src/isa/riscv64/instr/rvi/decode.h b/src/isa/riscv64/instr/rvi/decode.h
+index 5fbe4238..2a947b56 100644
+--- a/src/isa/riscv64/instr/rvi/decode.h
++++ b/src/isa/riscv64/instr/rvi/decode.h
+@@ -292,6 +292,8 @@ def_THelper(op32) {
+ }
+ 
+ def_THelper(branch) {
++#ifndef CONFIG_RV_NO_C
++  // The general helpers below perform IALIGN=32 target checks in no-C mode.
+   def_INSTR_TAB("??????? 00000 ????? 000 ????? ????? ??", c_beqz);
+   def_INSTR_TAB("??????? 00000 ????? 001 ????? ????? ??", c_bnez);
+   def_INSTR_TAB("??????? 00000 ????? 100 ????? ????? ??", p_bltz);
+@@ -299,6 +301,7 @@ def_THelper(branch) {
+ 
+   def_INSTR_TAB("??????? ????? 00000 100 ????? ????? ??", p_bgtz);
+   def_INSTR_TAB("??????? ????? 00000 101 ????? ????? ??", p_blez);
++#endif
+ 
+   def_INSTR_TAB("??????? ????? ????? 000 ????? ????? ??", beq);
+   def_INSTR_TAB("??????? ????? ????? 001 ????? ????? ??", bne);
+@@ -310,15 +313,19 @@ def_THelper(branch) {
+ }
+ 
+ def_THelper(jal_dispatch) {
++#ifndef CONFIG_RV_NO_C
+   def_INSTR_TAB("??????? ????? ????? ??? 00000 ????? ??", c_j);
+   def_INSTR_TAB("??????? ????? ????? ??? 00001 ????? ??", p_jal);
++#endif
+   def_INSTR_TAB("??????? ????? ????? ??? ????? ????? ??", jal);
+   return EXEC_ID_inv;
+ }
+ 
+ def_THelper(jalr_dispatch) {
++#ifndef CONFIG_RV_NO_C
+   def_INSTR_TAB("0000000 00000 00001 ??? 00000 ????? ??", p_ret);
+   def_INSTR_TAB("0000000 00000 ????? ??? 00000 ????? ??", c_jr);
++#endif
+   def_INSTR_TAB("??????? ????? ????? 000 ????? ????? ??", jalr);
+   return EXEC_ID_inv;
+ }
+diff --git a/src/isa/riscv64/local-include/intr.h b/src/isa/riscv64/local-include/intr.h
+index 97f4a5e2..b3b7ee22 100644
+--- a/src/isa/riscv64/local-include/intr.h
++++ b/src/isa/riscv64/local-include/intr.h
+@@ -72,8 +72,8 @@ enum {
+ #define LCI_EXCLUDE_LCOFI_MASK (~0x3FFFULL)
+ #define EXCLUDE_SEI_MASK ~(0x1ULL << IRQ_SEIP)
+ 
+-// now NEMU does not support EX_IAM,
+-// so it may ok to use EX_IAM to indicate a successful memory access
++// EX_IAM is raised by control-flow instructions through longjmp_exception,
++// never returned as a memory-access result, so zero can still mean success.
+ #define MEM_OK 0
+ 
+ word_t raise_intr(word_t NO, vaddr_t epc);
+diff --git a/src/isa/riscv64/local-include/rtl.h b/src/isa/riscv64/local-include/rtl.h
+index e7f66a04..d4e98121 100644
+--- a/src/isa/riscv64/local-include/rtl.h
++++ b/src/isa/riscv64/local-include/rtl.h
+@@ -18,9 +18,30 @@
+ #define __RISCV64_RTL_H__
+ 
+ #include <rtl/rtl.h>
++#include <cpu/cpu.h>
+ #include "reg.h"
+ #include "csr.h"
+ #include "trigger.h"
++#include "intr.h"
++
++static inline void riscv64_check_cfi_target(Decode *s, vaddr_t target) {
++#ifdef CONFIG_RV_NO_C
++  if (target & 3) {
++    save_globals(s);
++    cpu.trapInfo.tval = target;
++    longjmp_exception(EX_IAM);
++  }
++#endif
++}
++
++static inline void riscv64_check_branch_target(Decode *s, uint32_t relop,
++    const rtlreg_t *src1, const rtlreg_t *src2, vaddr_t target) {
++#ifdef CONFIG_RV_NO_C
++  if (interpret_relop(relop, *src1, *src2)) {
++    riscv64_check_cfi_target(s, target);
++  }
++#endif
++}
+ 
+ #define FBOX_MASK 0xFFFFFFFF00000000ull
+ #define HFBOX_MASK 0xFFFFFFFFFFFF0000ull
+diff --git a/src/isa/riscv64/system/intr.c b/src/isa/riscv64/system/intr.c
+index e662cb1c..6104f37f 100644
+--- a/src/isa/riscv64/system/intr.c
++++ b/src/isa/riscv64/system/intr.c
+@@ -171,6 +171,7 @@ word_t raise_intr(word_t NO, vaddr_t epc) {
+     vsstatus->sdt = MUXDEF(CONFIG_RV_SSDBLTRP, henvcfg->dte && menvcfg->dte, 0);
+     vstval->val = cpu.trapInfo.tval;
+     switch (NO) {
++      case EX_IAM:
+       case EX_IPF: case EX_LPF: case EX_SPF:
+       case EX_LAM: case EX_SAM:
+       case EX_IAF: case EX_LAF: case EX_SAF:
+@@ -220,6 +221,7 @@ word_t raise_intr(word_t NO, vaddr_t epc) {
+     IFDEF(CONFIG_RVH, htinst->val = cpu.trapInfo.tinst);
+     stval->val = cpu.trapInfo.tval;
+     switch (NO) {
++      case EX_IAM:
+       case EX_IPF: case EX_LPF: case EX_SPF:
+       case EX_LAM: case EX_SAM:
+       case EX_IAF: case EX_LAF: case EX_SAF:
+@@ -276,6 +278,7 @@ word_t raise_intr(word_t NO, vaddr_t epc) {
+     IFDEF(CONFIG_RVH, mtval2->val = cpu.trapInfo.tval2);
+     IFDEF(CONFIG_RVH, mtinst->val = cpu.trapInfo.tinst);
+     switch (NO) {
++      case EX_IAM:
+       case EX_IPF: case EX_LPF: case EX_SPF:
+       case EX_LAM: case EX_SAM:
+       case EX_IAF: case EX_LAF: case EX_SAF:
+diff --git a/src/isa/riscv64/system/priv.c b/src/isa/riscv64/system/priv.c
+index 1fe75781..8d242e48 100644
+--- a/src/isa/riscv64/system/priv.c
++++ b/src/isa/riscv64/system/priv.c
+@@ -2039,7 +2039,7 @@ static word_t csr_read(uint32_t csrid) {
+ #endif // CONFIG_RV_PMA_CSR
+ 
+ #ifdef CONFIG_RV_SMRNMI
+-    case CSR_MNEPC: return mnepc->val & (~0x1UL) ;
++    case CSR_MNEPC: return mnepc->val & MUXDEF(CONFIG_RV_NO_C, ~0x3UL, ~0x1UL) ;
+     case CSR_MNSTATUS: return mnstatus->val & MNSTATUS_MASK;
+ #endif // CONFIG_RV_SMRNMI
+ 
+@@ -2248,8 +2248,8 @@ static void csr_write(uint32_t csrid, word_t src) {
+       break;
+ 
+     case CSR_SEPC:
+-      IFDEF(CONFIG_RVH, if(cpu.v) {vsepc->val = src & (~0x1UL); break;});
+-      sepc->val = src & (~0x1UL);
++      IFDEF(CONFIG_RVH, if(cpu.v) {vsepc->val = src & MUXDEF(CONFIG_RV_NO_C, ~0x3UL, ~0x1UL); break;});
++      sepc->val = src & MUXDEF(CONFIG_RV_NO_C, ~0x3UL, ~0x1UL);
+       break;
+ 
+     case CSR_SCAUSE:
+@@ -2425,7 +2425,7 @@ static void csr_write(uint32_t csrid, word_t src) {
+ 
+     case CSR_VSIE: set_vsie(src); break;
+     case CSR_VSTVEC: set_tvec(dest, src); break;
+-    case CSR_VSEPC: vsepc->val = src & (~0x1UL); break;
++    case CSR_VSEPC: vsepc->val = src & MUXDEF(CONFIG_RV_NO_C, ~0x3UL, ~0x1UL); break;
+     case CSR_VSIP: set_vsip(src); break;
+ 
+ #ifdef CONFIG_RV_SMCSRIND
+@@ -2646,7 +2646,7 @@ static void csr_write(uint32_t csrid, word_t src) {
+       break;
+ #endif // CONFIG_RV_SMCNTRPMF
+ 
+-    case CSR_MEPC: *dest = src & (~0x1UL); break;
++    case CSR_MEPC: *dest = src & MUXDEF(CONFIG_RV_NO_C, ~0x3UL, ~0x1UL); break;
+     case CSR_MIP: set_mip(src); break;
+ 
+ #ifdef CONFIG_RV_SMCSRIND
+@@ -2783,7 +2783,7 @@ static void csr_write(uint32_t csrid, word_t src) {
+ #endif // CONFIG_RV_PMA_CSR
+ 
+ #ifdef CONFIG_RV_SMRNMI
+-    case CSR_MNEPC: *dest = src & (~0x1UL); break;
++    case CSR_MNEPC: *dest = src & MUXDEF(CONFIG_RV_NO_C, ~0x3UL, ~0x1UL); break;
+     case CSR_MNSTATUS:
+     {
+       word_t mnstatus_mask = MNSTATUS_MASK;

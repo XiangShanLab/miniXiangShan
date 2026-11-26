@@ -34,7 +34,7 @@ class Divider(implicit p: Parameters) extends NSModule {
   io.out.bits.memValid := false.B
   io.out.bits.memRead := false.B
   io.out.bits.memWrite := false.B
-  io.out.bits.memVaddr := 0.U
+  io.out.bits.vaddr := 0.U
   io.out.bits.memPaddr := 0.U
   io.out.bits.memStoreData := 0.U
   io.out.bits.storeValid := false.B

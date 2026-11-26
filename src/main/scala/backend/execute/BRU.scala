@@ -9,19 +9,7 @@ import minixiangshan.backend.dispatch.DispatchedInst
 import minixiangshan.backend.rename.RedirectInfo
 import minixiangshan.frontend.BpuUpdateReq
  
-// ═══════════════════════════════════════════════════════════════
-//  分支执行单元
-//
-//  支持操作：jal, jalr, beq, bne, blt, bge, bltu, bgeu
-//  单拍组合逻辑完成
-//
-//  职责：
-//    1. 计算分支实际 taken 与目标地址
-//    2. 与 BPU 预测值比对，仅在误预测时发起重定向
-//    3. 无论预测正确与否，为每条有效分支指令生成 BPU 更新数据
-//  注意：JAL 的重定向与 BPU 更新已由前端预译码处理，此处跳过
-// ═══════════════════════════════════════════════════════════════
- 
+
 class redirectInfoFromBru(implicit p: Parameters) extends NSBundle {
   val doRedirect = Bool()
   val snptId     = UInt(log2Ceil(SnapshotNum).W)
@@ -52,6 +40,7 @@ class BRU(implicit p: Parameters) extends NSModule {
     val uop       = Input(new DispatchedInst)
     val rs1       = Input(UInt(XLEN.W))
     val rs2       = Input(UInt(XLEN.W))
+    val faultVaddr = Valid(UInt(XLEN.W)) // 控制流目标未对齐时有效
     val result    = Output(UInt(XLEN.W))                        // 写回目标寄存器的值（如 BL 的 PC+4）
     val bruInfo   = ValidIO(new redirectInfoFromBru)             // 误预测重定向
     val isBranch  = Output(Bool())                               // 是否为分支指令
@@ -104,6 +93,16 @@ class BRU(implicit p: Parameters) extends NSModule {
   val jalrTarget   = Cat(jalrSum(XLEN - 1, 1), 0.U(1.W))
   val branchTarget = (pc + imm)(XLEN - 1, 0)
   val target       = Mux(op === BruOp.jalr, jalrTarget, branchTarget)
+
+  // IALIGN=32：异常属于原控制流指令，检查不能依赖误预测或排除 JAL。
+  val isRiscvCfi = Seq(
+    BruOp.jal, BruOp.jalr, BruOp.beq, BruOp.bne,
+    BruOp.blt, BruOp.bge, BruOp.bltu, BruOp.bgeu
+  ).map(cfiOp => op === cfiOp).reduce(_ || _)
+  val targetMisaligned = io.valid && !io.uop.excp.hasException &&
+    isRiscvCfi && branchTaken && target(1, 0).orR
+  io.faultVaddr.valid := targetMisaligned
+  io.faultVaddr.bits := target
  
   // ── 写回值 ──
   // jal / jalr 把 PC+4 写入 rd

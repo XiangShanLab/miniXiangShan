@@ -168,7 +168,7 @@ class RobEnqIO(implicit p: Parameters) extends NSBundle {
 //  val sqIdx    = new SqPtr(SqSize)
 //  val memWrite    = Bool()
 //  val memRead     = Bool()
-//  val memVaddr    = UInt(XLEN.W)
+//  val vaddr    = UInt(XLEN.W)
 //  val memPaddr    = UInt(XLEN.W)
 //  val storeData   = UInt(XLEN.W)
 //
@@ -211,12 +211,12 @@ class RobRedirectIO(implicit p: Parameters) extends NSBundle {
 //}
 
 class RobWriteback(implicit p: Parameters) extends NSBundle {
+  val vaddr = UInt(XLEN.W) // 访存虚拟地址或异常相关地址
   val robIdx  = new RobPtr(RobSize)
   val sqIdx  = new SqPtr(SqSize)
   val isMemWrite  = Bool()
   val isMemRead  = Bool()
   val memValid  = Bool()
-  val memVaddr  = UInt(XLEN.W)
   val memPaddr  = UInt(XLEN.W)
   val memStoreData  = UInt(XLEN.W)
   val storeValid  = Bool()

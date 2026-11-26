@@ -18,6 +18,13 @@ removes it, and the next build recreates it.
 integer-only RV64 shared library inside `.deps/nemu-ref/`, then installs it in
 `build/ref/`. The runtime does not import another local source checkout.
 
+`difftest/patches/0001-rv64-without-c.patch` adds a build-time `RV_NO_C` mode,
+enabled by `scripts/build-ref.sh` to match miniXS. It disables compressed
+instruction decoding, checks taken control-flow targets with `IALIGN=32`,
+preserves the faulting instruction PC and target address in trap CSRs, and
+aligns exception-return addresses to four bytes. The patch is included in the
+reference build fingerprint; upstream builds retain C support by default.
+
 ## Applications
 
 `apps/coremark/deps.lock` pins `https://github.com/eembc/coremark.git` at

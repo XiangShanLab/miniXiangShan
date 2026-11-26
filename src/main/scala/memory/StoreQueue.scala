@@ -289,7 +289,7 @@ class StoreQueue(implicit p: Parameters) extends NSModule {
   io.outResult.bits.memValid        := true.B
   io.outResult.bits.memRead         := false.B
   io.outResult.bits.memWrite        := true.B
-  io.outResult.bits.memVaddr        := wbEntry.vaddr
+  io.outResult.bits.vaddr        := wbEntry.vaddr
   io.outResult.bits.memPaddr        := wbEntry.paddr
  
   // Keep the raw architectural value.  DCache/MSHR place it into the correct

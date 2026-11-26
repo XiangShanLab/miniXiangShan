@@ -19,9 +19,25 @@ required by the pinned NEMU version.
 `difftest/deps.lock` pins the public NEMU URL and commit. `make emu` fetches
 it into `.deps/nemu-ref`, builds an integer-only RV64 reference and installs
 the library in `build/ref/`.
-The build rejects a different commit, modified source, or a local-path origin.
+The build applies `difftest/patches/0001-rv64-without-c.patch` and enables
+`CONFIG_RV_NO_C=y` to match miniXS's `IALIGN=32`. Compressed encodings raise
+illegal-instruction exceptions. JAL, JALR and taken conditional branches trap
+on targets that are not four-byte aligned, before updating the link register;
+JALR clears bit 0 before checking alignment. Trap CSRs retain the branch/jump
+PC and the misaligned target, and writes to `mepc`/`sepc` clear both low bits.
+Synchronizing `misa` alone does not change the upstream decoder's behavior.
+
+The build rejects a different commit, source changes outside the expected
+patch, or a local-path origin. The patch participates in the build fingerprint.
 NEMU's own dependency fetching runs inside that independent checkout.
 No repository-external local source files are imported.
+
+To rebuild and check the reference without rebuilding RTL:
+
+```bash
+bash scripts/build-ref.sh
+python3 difftest/tests/test_nemu_no_c.py
+```
 
 Configure BPU, Load Queue and L2 prefetch in `CoreConfigKeys` in
 `src/main/scala/config/Core.scala`, then rebuild.

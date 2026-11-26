@@ -345,7 +345,7 @@ class LoadQueue(implicit p: Parameters) extends NSModule {
     io.outResult.bits.memValid        := !wbIsCacheOp
     io.outResult.bits.memRead         := !wbIsCacheOp
     io.outResult.bits.memWrite        := false.B
-    io.outResult.bits.memVaddr        := finalWbEntry.vaddr
+    io.outResult.bits.vaddr        := finalWbEntry.vaddr
     io.outResult.bits.memPaddr        := finalWbEntry.paddr
     io.outResult.bits.memStoreData    := 0.U
     io.outResult.bits.storeValid      := false.B

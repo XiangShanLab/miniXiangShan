@@ -23,8 +23,8 @@ object ExcType extends Enumeration {
   val IACCESS  = Value(2)   // cause 1 ：取指访问错误
   
   // 译码、控制流及系统指令异常
-  val ILLEGAL  = Value(3)   // cause 2 ：非法指令
-  val IALIGN   = Value(4)   // cause 0 ：指令地址未对齐
+  val IALIGN   = Value(3)   // cause 0 ：指令地址未对齐
+  val ILLEGAL  = Value(4)   // cause 2 ：非法指令
   val ECALL    = Value(5)   // cause 8/9/11：环境调用
   val BREAK    = Value(6)   // cause 3 ：EBREAK 断点异常
   
@@ -130,13 +130,14 @@ class ExceptionBundle extends Bundle {
   def ecode: UInt = cause
 
   /** 最高优先级异常的 tval 来源 */
-  def tvalSelect(pc: UInt, inst: UInt, memVaddr: UInt): UInt = {
+  def tvalSelect(pc: UInt, inst: UInt, vaddr: UInt): UInt = {
     val exc = highestPriority
     val useInst = exc === ILLEGAL.id.U
-    val useMem  = exc === LALIGN.id.U || exc === LACCESS.id.U ||
-                  exc === SALIGN.id.U || exc === SACCESS.id.U ||
-                  exc === LPAGE.id.U  || exc === SPAGE.id.U
-    Mux(needsTvalWrite, Mux(useInst, inst, Mux(useMem, memVaddr, pc)), 0.U)
+    val useVaddr = exc === IALIGN.id.U ||
+                   exc === LALIGN.id.U || exc === LACCESS.id.U ||
+                   exc === SALIGN.id.U || exc === SACCESS.id.U ||
+                   exc === LPAGE.id.U  || exc === SPAGE.id.U
+    Mux(needsTvalWrite, Mux(useInst, inst, Mux(useVaddr, vaddr, pc)), 0.U)
   }
 }
 

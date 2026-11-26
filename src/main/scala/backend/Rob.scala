@@ -24,9 +24,9 @@ class RobEntryInner(implicit p: Parameters) extends NSBundle {
   val ldst        = UInt(5.W)
   val rfWen       = Bool()
   val rfdata      = UInt(XLEN.W)
+  val vaddr       = UInt(XLEN.W) // 访存虚拟地址或异常相关地址
   val memRead     = Bool()
   val memWrite    = Bool()
-  val memVaddr    = UInt(XLEN.W)
   val memPaddr    = UInt(XLEN.W)
   val storeData   = UInt(XLEN.W)
   val storeValid  = Bool()
@@ -187,7 +187,7 @@ class ROB(implicit p: Parameters) extends NSModule {
       entries(writeIdx).rfWen        := io.enq.bits(i).rfWen
       entries(writeIdx).memRead      := io.enq.bits(i).memRead
       entries(writeIdx).memWrite     := io.enq.bits(i).memWrite
-      entries(writeIdx).memVaddr     := 0.U
+      entries(writeIdx).vaddr        := io.enq.bits(i).pc
       entries(writeIdx).memPaddr     := 0.U
       entries(writeIdx).storeData    := 0.U
       entries(writeIdx).storeValid   := false.B
@@ -195,7 +195,7 @@ class ROB(implicit p: Parameters) extends NSModule {
       entries(writeIdx).csrWaddr     := io.enq.bits(i).csrWaddr
       entries(writeIdx).csrOp        := io.enq.bits(i).csrOp
       entries(writeIdx).tlbOp        := io.enq.bits(i).tlbOp
-      entries(writeIdx).tlbFillIdx := 0.U
+      entries(writeIdx).tlbFillIdx   := 0.U
       entries(writeIdx).flushOnCommit:= io.enq.bits(i).flushOnCommit
       entries(writeIdx).privLevel    := io.enq.bits(i).privLevel
       entries(writeIdx).isIdle       := io.enq.bits(i).isIdle
@@ -231,17 +231,21 @@ class ROB(implicit p: Parameters) extends NSModule {
       when(entries(idx).isCacheOp) {
         entries(idx).memRead   := false.B
         entries(idx).memWrite  := false.B
-        entries(idx).memVaddr  := wb.bits.memVaddr
         entries(idx).memPaddr  := wb.bits.memPaddr
         entries(idx).storeData := 0.U
       }
       when(wb.bits.memValid) {
         entries(idx).memRead    := wb.bits.isMemRead
         entries(idx).memWrite   := wb.bits.isMemWrite
-        entries(idx).memVaddr   := wb.bits.memVaddr
         entries(idx).memPaddr   := wb.bits.memPaddr
         entries(idx).storeData  := wb.bits.memStoreData
         entries(idx).storeValid := wb.bits.storeValid
+      }
+      // 访存/CacheOp 更新执行地址；跳转 IALIGN 更新目标；取指异常保留原 PC。
+      val branchIalign = wb.bits.excp.has(ExcType.IALIGN) &&
+        !entries(idx).excp.has(ExcType.IALIGN)
+      when(wb.bits.memValid || entries(idx).isCacheOp || branchIalign) {
+        entries(idx).vaddr := wb.bits.vaddr
       }
       entries(idx).csrWdata := wb.bits.csrWdata
       entries(idx).csrTimer := wb.bits.csrTimer
@@ -347,7 +351,7 @@ class ROB(implicit p: Parameters) extends NSModule {
   io.robRedirect.excp        := redirectEntry.excp
   io.robRedirect.pc          := redirectEntry.pc
   io.robRedirect.inst        := redirectEntry.inst
-  io.robRedirect.excpVaddr   := redirectEntry.memVaddr
+  io.robRedirect.excpVaddr   := redirectEntry.vaddr
   io.robRedirect.invalidIcache       :=   redirectValid && (redirectEntry.fenceI ||
 
   ( redirectEntry.isCacheOp &&
