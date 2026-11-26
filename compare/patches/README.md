@@ -1,9 +1,11 @@
 # Dependency patches
 
 NutShell is checked out at `compare/nutshell.lock` and the patches are applied
-to that pinned revision. A matching checkout is reused; unknown local source
-changes produce an error and are preserved. CoreMark preparation belongs to
-the application directory rather than this comparison build.
+to that pinned revision. A matching checkout is reused; a checkout matching an
+earlier prefix of the managed patches is upgraded by applying the remaining
+patches. Unknown local source changes produce an error and are preserved.
+CoreMark preparation belongs to the application directory rather than this
+comparison build.
 
 ## NutShell
 
@@ -21,6 +23,9 @@ Files changed:
 - `0004-add-retire-trace.patch` exports the ROB retirement slots to the
   performance top through read-only `BoringUtils` taps.  It does not drive or
   modify any pipeline, cache, TLB, or memory signal.
+- `0005-add-inorder-retire-trace.patch` exports the in-order WBU's single
+  architectural commit slot through the same trace interface, with the unused
+  second slot tied low.
 
 Why this is needed:
 
@@ -48,8 +53,8 @@ Why `0002` is needed:
   pipeline, caches, branch predictor, or memory requests.
 - The `LSUADDR` sink is moved into the in-order branch because the OOO backend
   does not provide that debug pin.  This is also observation-only.
-- The resulting RTL keeps `CORE=ooo` and the same core/cache/TLB settings.  No
-  functional timing path is intentionally changed by `0002`.
+- The selected `CORE=ooo` or `CORE=inorder` and its core/cache/TLB settings are
+  preserved. No functional timing path is intentionally changed by `0002`.
 
 Why `0003` is needed:
 
@@ -76,6 +81,16 @@ Why `0004` is needed:
   lane is tied low.
 - These signals are observation-only.  The trace does not feed back into the
   core and does not alter instruction timing.
+
+Why `0005` is needed:
+
+- Selecting `CORE=inorder` instantiates WBU instead of the OOO ROB. The
+  performance top still needs a source for each `perfTrace*` sink.
+- WBU's `io.in.ready` is always true. Its `io.in.valid`, PC, and instruction
+  therefore describe the architectural commit slot used by difftest and the
+  instruction-retirement counter. Only trace lane 0 is active.
+- The patch adds read-only taps and zero-valued unused lanes. It does not
+  change pipeline control or performance-counter timing.
 
 ## CoreMark
 

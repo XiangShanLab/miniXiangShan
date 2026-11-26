@@ -19,20 +19,30 @@ prepare_source() {
   fi
   # Construct the expected patched tree in a temporary index. Never reset or
   # clean an existing checkout: mismatching local source must remain recoverable.
-  local index tree
+  local index tree patch matched=-1 count=0
+  local -a patches=("$@")
   index=$(mktemp "$directory/.git/mini-index.XXXXXX")
   rm -f "$index"
   GIT_INDEX_FILE="$index" git -C "$directory" read-tree HEAD
-  if ! GIT_INDEX_FILE="$index" git -C "$directory" apply --cached "$@"; then
-    rm -f "$index"
-    die "cannot apply $name patches to the pinned revision"
-  fi
+  # Recognize a checkout prepared with an earlier prefix of these patches, so
+  # adding a new adaptation can upgrade managed sources without resetting them.
+  for patch in "${patches[@]}"; do
+    tree=$(GIT_INDEX_FILE="$index" git -C "$directory" write-tree)
+    if git -C "$directory" diff --quiet "$tree" --; then
+      matched=$count
+    fi
+    if ! GIT_INDEX_FILE="$index" git -C "$directory" apply --cached "$patch"; then
+      rm -f "$index"
+      die "cannot apply $name patches to the pinned revision"
+    fi
+    count=$((count + 1))
+  done
   tree=$(GIT_INDEX_FILE="$index" git -C "$directory" write-tree)
   rm -f "$index"
   if git -C "$directory" diff --quiet "$tree" --; then
     echo "Reusing pinned $name sources: $directory"
-  elif git -C "$directory" diff --quiet HEAD --; then
-    git -C "$directory" apply "$@"
+  elif ((matched >= 0)); then
+    git -C "$directory" apply "${patches[@]:matched}"
   else
     die "$name checkout differs from the expected patches; existing files were preserved: $directory"
   fi

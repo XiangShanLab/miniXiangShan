@@ -47,6 +47,9 @@ def main():
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--clean-results", action="store_true")
     args = parser.parse_args()
+    core = os.environ.get("NUTSHELL_CORE", "ooo")
+    if core not in ("ooo", "inorder"):
+        raise ValueError("NUTSHELL_CORE must be ooo or inorder")
     app = os.environ.get("APP", "coremark")
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", app):
         raise ValueError("APP must be a directory name in apps/, e.g. APP=coremark")
@@ -54,7 +57,7 @@ def main():
     descriptor = app_dir / "compare.json"
     if not descriptor.is_file():
         raise ValueError(f"{app} has no comparison descriptor: {descriptor}")
-    out = COMPARE_DIR / "results" / app
+    out = COMPARE_DIR / "results" / app / core
     if args.clean_results:
         shutil.rmtree(out, ignore_errors=True)
         print(f"Removed {out}")
@@ -77,14 +80,14 @@ def main():
     if not image or len(image) > 16 * 1024 * 1024 or padded != hex_image:
         raise ValueError("app BIN/HEX disagree or exceed the 16 MiB DRAM; rebuild the app")
     if args.check:
-        print(f"Selected app: {app} ({files['image']})")
+        print(f"Selected app: {app} ({files['image']}), NUTSHELL_CORE={core}")
         return
 
     build = Path(os.environ.get("BUILD_DIR", COMPARE_DIR / "build")).resolve()
-    binaries = {cpu: build / f"{cpu}-emu" for cpu in ("nutshell", "mini")}
+    binaries = {"nutshell": build / f"nutshell-{core}-emu", "mini": build / "mini-emu"}
     for binary in binaries.values():
         if not binary.is_file():
-            raise ValueError(f"missing {binary}; run make build in {COMPARE_DIR}")
+            raise ValueError(f"missing {binary}; run make build NUTSHELL_CORE={core} in {COMPARE_DIR}")
     limit = int(os.environ.get("MAX_CYCLES", "20000000"))
     window = int(os.environ.get("TRACE_WINDOW", "4096"))
     trace_option = os.environ.get("RETIRE_TRACE", "1")
@@ -112,12 +115,14 @@ def main():
         for name in ("summary.txt", "commit-summary.txt", "commit-windows.tsv"):
             (out / name).unlink(missing_ok=True)
         context = [f"Generated: {datetime.now().astimezone().isoformat()}", f"APP={app}",
+                   f"NUTSHELL_CORE={core}",
                    f"Image: {files['image']}",
                    f"Image SHA256: {hashlib.sha256(image).hexdigest()}",
                    f"MAX_CYCLES={limit}", f"RETIRE_TRACE={trace_option}", f"TRACE_WINDOW={window}"]
         for path in (build / "dependencies.txt", app_dir / "build/build-info.txt"):
             context.append(path.read_text())
         for cpu, binary in binaries.items():
+            context.append(f"{cpu} simulator: {binary}")
             context.append(f"{cpu} simulator SHA256: {hashlib.sha256(binary.read_bytes()).hexdigest()}")
         (out / "run-context.txt").write_text("\n".join(context) + "\n")
         reference_log = out / "reference.log"
@@ -130,7 +135,7 @@ def main():
         results = {}
         for cpu, binary in binaries.items():
             log = out / f"{cpu}.log"
-            command = [binary, f"+name={app}_{cpu}", f"+max_cycles={limit}",
+            command = [binary, f"+name={app}_{cpu}_{core}", f"+max_cycles={limit}",
                        f"+dram_init={files['hex']}"]
             if trace:
                 command += [f"+trace={out / (cpu + '.tsv')}"] + trace_args
@@ -162,7 +167,9 @@ def main():
                             "--elf", str(files["elf"]), "--window", str(window),
                             "--out-windows", str(out / "commit-windows.tsv"),
                             "--out-summary", str(out / "commit-summary.txt")], check=True)
-        summary = [f"APP={app}: miniXiangShan vs NutShell OOO RV64", "Validation: passed"]
+        label = "OOO" if core == "ooo" else "in-order"
+        summary = [f"APP={app}: miniXiangShan vs NutShell {label} RV64",
+                   f"NUTSHELL_CORE={core}", "Validation: passed"]
         for cpu, result in results.items():
             summary.append(cpu + " " + " ".join(f"{key}={result[key]}"
                            for key in ("cycles", "instret", "ipc", "signature", "checksum")))

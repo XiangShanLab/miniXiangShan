@@ -6,7 +6,7 @@
 miniXiangShan 与完整 NutShell 的端到端周期数。该实验回答“两个完整核在这一
 受控负载上的运行时间差异”，不把差异归因于单个模块。
 
-## 2. 固定条件
+## 2. 配置与固定条件
 
 - CoreMark 1.0.1（`eembc/coremark` 的 `v1.01` 提交
   `cfa9ab377835911f23d9b0831c7be302ed1f58de`），2K performance 配置，
@@ -16,12 +16,18 @@ miniXiangShan 与完整 NutShell 的端到端周期数。该实验回答“两�
 - 同一份 `Axi4PerfPlatform.v`、同一个 Verilator testbench 协议。
 - DRAM 基址 `0x8000_0000`，16 MiB 窗口；MMIO 基址 `0x4000_f000`。
 - 外部平台单 outstanding，读首拍 1 cycle，后续每拍 1 beat。
-- NutShell 使用 `CORE=ooo`（双发射乱序后端）、RV64；miniXiangShan 的
-  `compare` 配置使用 RV64IM 乱序核。
+- NutShell 通过 `make ... NUTSHELL_CORE=ooo/inorder` 选择原生 RV64 配置，
+  默认 `ooo`（双发射乱序后端），也可选择 `inorder`（单槽顺序提交）。
+  miniXiangShan 的 `compare` 配置使用 RV64IM 乱序核。
 - 两边加载同一份 `apps/coremark/build/coremark.hex`，因此执行的指令流和地址布局相同。
 
 两边保留各自内部 L1/L2、替换策略、MSHR、预取器和流水线。实验统一的是外部
 存储器和 MMIO，不是内部 cache 或微架构。
+
+每次运行只比较 miniXiangShan 与所选 NutShell 配置，配置记录在
+`summary.txt` 和 `run-context.txt` 中。结果分别写入
+`results/coremark/ooo/` 和 `results/coremark/inorder/`；比较两种果壳时须保持
+应用镜像和运行参数一致。
 
 ## 3. 计数口径
 
@@ -68,14 +74,15 @@ ipc_ratio       = mini.ipc / nutshell.ipc
 ```
 
 三个字段均为同一次运行内的派生比值。两边使用同一份 RV64 镜像，正常情况下
-`instret_ratio` 应接近 1；当前相差 5 条，来自两侧计数器对计时边界附近指令的
-采样差异。IPC 是派生量。
+`instret_ratio` 应接近 1；计时边界附近的计数器采样差异取决于核配置，
+不能假定两种 NutShell 配置具有相同的计数偏差。IPC 是派生量。
 
 ## 6. 公平性与边界
 
 - 两边已统一为 RV64 和同一份机器码，不再存在 RV32/RV64 指令流差异。
-- 两边 cache、预取器、MSHR 和流水线不同，这是被比较对象的一部分。两边都
-  使用各自的乱序执行能力；没有把 NutShell 降到顺序配置。
+- 两边 cache、预取器、MSHR 和流水线不同，这是被比较对象的一部分。
+  `ooo` 比较两个乱序核，`inorder` 比较 miniXiangShan 乱序核与 NutShell
+  顺序核；各配置均保留上游对应的微架构设置。
 - NutShell 外部连接有 MEM/MMIO AXI mux；miniXiangShan 原生 AXI4 直连平台。平台时序相同，但内部请求序列仍可能不同。
 - 16 MiB 单 outstanding 平台不是完整 SoC 互联或 DRAM 控制器模型。
 - 负载只覆盖 CoreMark；不能外推到 OS、中断、多线程或真实应用。
@@ -95,12 +102,14 @@ ipc_ratio=<mini.ipc / nutshell.ipc>
 cycles_per_iteration: NutShell=<value> mini=<value>
 ```
 
-## 7. ROB 提交窗口归因
+## 7. 架构退休窗口归因
 
 端到端周期数只说明差异大小，不能说明差异在流水线的哪个位置累积。因此同一
-次运行另外采集两侧 ROB 的架构退休窗口：
+次运行另外采集两侧的架构退休窗口：
 
-- NutShell 取 ROB 的 `retireATerm` / `retireMultiTerms` 对应退休槽位；
+- NutShell `ooo` 取 ROB 的 `retireATerm` / `retireMultiTerms` 对应退休槽位；
+- NutShell `inorder` 取 WBU 的 `io.in.valid` 与对应 PC/指令；WBU 始终
+  ready，每周期最多提交一条指令，其余轨迹槽位填零；
 - miniXiangShan 取 ROB 的 `commit.valid` 对应提交槽位；
 - 不取执行单元写回。写回是乱序的，不能直接与另一侧的架构退休顺序对齐。
 

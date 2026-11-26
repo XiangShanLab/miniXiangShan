@@ -42,10 +42,12 @@ Adaptations are kept in:
 - `compare/patches/nutshell/0001-add-perf-board.patch`;
 - `compare/patches/nutshell/0002-fix-ooo-perfcnt-and-difftest.patch`;
 - `compare/patches/nutshell/0003-fix-ooo-retire-waw.patch`;
-- `compare/patches/nutshell/0004-add-retire-trace.patch`.
+- `compare/patches/nutshell/0004-add-retire-trace.patch`;
+- `compare/patches/nutshell/0005-add-inorder-retire-trace.patch`.
 
 Patch reasons and functional boundaries are documented in
 `compare/patches/README.md`. Source preparation never resets unknown local
 changes. Resolved revisions and adaptation fingerprints are recorded in
 `compare/build/dependencies.txt`; each run saves them with image and simulator
-SHA256 values in `compare/results/<app>/run-context.txt`.
+SHA256 values and the selected `NUTSHELL_CORE` in
+`compare/results/<app>/<core>/run-context.txt`.

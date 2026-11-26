@@ -1,0 +1,19 @@
+diff --git a/src/main/scala/nutcore/backend/seq/WBU.scala b/src/main/scala/nutcore/backend/seq/WBU.scala
+--- a/src/main/scala/nutcore/backend/seq/WBU.scala
++++ b/src/main/scala/nutcore/backend/seq/WBU.scala
+@@ -43,7 +43,15 @@ class WBU(implicit val p: NutCoreConfig) extends NutCoreModule{
+   val falseWire = WireInit(false.B) // make BoringUtils.addSource happy
+   BoringUtils.addSource(io.in.valid, "perfCntCondMinstret")
+   BoringUtils.addSource(falseWire, "perfCntCondMultiCommit")
+ 
++  // Observation-only architectural commit trace, matching difftest below.
++  // WBU is always ready; only lane 0 commits in the in-order configuration.
++  BoringUtils.addSource(WireInit(Cat(0.U(1.W), io.in.valid)), "perfTraceValid")
++  BoringUtils.addSource(WireInit(SignExt(io.in.bits.decode.cf.pc, AddrBits)), "perfTracePc0")
++  BoringUtils.addSource(WireInit(0.U(64.W)), "perfTracePc1")
++  BoringUtils.addSource(WireInit(io.in.bits.decode.cf.instr), "perfTraceInst0")
++  BoringUtils.addSource(WireInit(0.U(64.W)), "perfTraceInst1")
++
+   if (p.EnableDifftest && (!p.FPGAPlatform || p.FPGADifftest)) {
+     val difftest_commit = DifftestModule(new DiffInstrCommit, delay = 1, dontCare = true)
+     difftest_commit.coreid := 0.U

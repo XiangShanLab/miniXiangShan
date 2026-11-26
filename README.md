@@ -86,13 +86,16 @@ cd ../..
 cd compare
 make build
 make run APP=coremark
+make run APP=coremark NUTSHELL_CORE=inorder
 make run APP=hello RETIRE_TRACE=0
 ```
 
 `make build` 构建两边的性能仿真器；`make run` 会先检查所选应用的产物，
 再增量构建和运行两边，校验结果并比较 cycles、instret、IPC。
 两边使用同一个外部 AXI4 平台、同一份应用镜像。结果写入
-`compare/results/<app>/`。具体契约见 [compare/README.md](compare/README.md)。
+`compare/results/<app>/<core>/`。`NUTSHELL_CORE=ooo/inorder` 选择乱序或顺序
+果壳，默认 `ooo`；两种配置的构建缓存和结果分别保存。
+具体契约见 [compare/README.md](compare/README.md)。
 
 该性能对比以应用自检、校验和及可选的退休轨迹为依据。
 逐指令 NEMU 差分由根目录的 `build/emu` 提供。

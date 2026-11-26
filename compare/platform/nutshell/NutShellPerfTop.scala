@@ -148,8 +148,8 @@ class NutShellPerfTop extends RawModule {
   val perf_checksum = IO(Output(UInt(32.W)))
 
   // Fixed three-lane retire trace interface shared with the miniXiangShan
-  // harness.  NutShell retires up to two instructions per cycle; lane 2 is
-  // tied low.  These are ROB retire signals, not unordered CDB writes.
+  // harness.  OOO uses two ROB retire lanes, in-order uses one WBU commit
+  // lane, and unused lanes are tied low by the trace sources and this top.
   val trace_valid = IO(Output(UInt(3.W)))
   val trace_pc_0  = IO(Output(UInt(64.W)))
   val trace_pc_1  = IO(Output(UInt(64.W)))

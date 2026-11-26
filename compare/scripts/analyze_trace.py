@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Align and summarize ROB retirement-window traces from two RTL runs."""
+"""Align and summarize architectural retirement-window traces from two RTL runs."""
 
 from __future__ import annotations
 

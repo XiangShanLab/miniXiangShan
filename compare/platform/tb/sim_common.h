@@ -81,7 +81,7 @@ static int run_perf_top(Top* top, int argc, char** argv) {
     top->aclk = 0;
     top->eval();
     // Sample before the rising edge: trace outputs then describe the commit
-    // window that the edge will retire, not the following ROB head.
+    // window that the edge will retire.
     if (trace != nullptr && !trace_done) {
       if (!trace_active) {
         for (int lane = 0; lane < 3; ++lane) {
